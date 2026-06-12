@@ -1,5 +1,6 @@
 // Claude Halo — App Logic
 (function () {
+  "use strict";
   var canvas = document.getElementById("halo");
   var menu = document.getElementById("menu");
   var summary = document.getElementById("summary");
@@ -28,6 +29,7 @@
     executing: "执行中",
     input_needed: "等待输入",
     completed: "已完成",
+    compacting: "压缩中",
   };
   var infos = {
     idle: "Claude 未运行",
@@ -35,6 +37,7 @@
     executing: "正在执行工具…",
     input_needed: "等待你的输入",
     completed: "任务完成",
+    compacting: "上下文压缩中…",
   };
 
   function updateSummary() {

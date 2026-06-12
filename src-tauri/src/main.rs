@@ -125,12 +125,6 @@ async fn get_state(s: tauri::State<'_, AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn set_halo_size(w: tauri::WebviewWindow, size: f64) -> Result<f64, String> {
-    w.set_size(tauri::LogicalSize::new(size, size)).map_err(|e| e.to_string())?;
-    Ok(size)
-}
-
-#[tauri::command]
 async fn set_passthrough(w: tauri::WebviewWindow, enabled: bool) -> Result<bool, String> {
     w.set_ignore_cursor_events(enabled).map_err(|e| e.to_string())?;
     Ok(enabled)
@@ -144,7 +138,7 @@ fn main() {
 
     tauri::Builder::default()
         .manage(AppState { current_state: state })
-        .invoke_handler(tauri::generate_handler![get_state, set_passthrough, set_halo_size])
+        .invoke_handler(tauri::generate_handler![get_state, set_passthrough])
         .setup(move |app| {
             let window = WebviewWindowBuilder::new(app, "main",
                 tauri::WebviewUrl::App("index.html".into())
