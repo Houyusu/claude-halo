@@ -1,6 +1,9 @@
 # Rust build output
 target/
 
+# Tauri codegen artifacts
+src-tauri/gen/
+
 # IDE
 .vscode/
 .idea/
