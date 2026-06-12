@@ -55,38 +55,22 @@
   .state-label.completed{color:#33cc55}
   .state-label.compacting{color:#9944ff}
 
-  /* ── Parameter panel ────────────────────── */
+  /* ── Reference table ───────────────────── */
   .params{
-    max-width:680px;width:100%;padding:0 16px;margin:24px 0 48px;
+    max-width:720px;width:100%;padding:0 16px;margin:24px 0 48px;
   }
   .params h2{
     font-size:16px;color:#888;margin-bottom:12px;padding-bottom:6px;
     border-bottom:1px solid rgba(255,255,255,0.08);letter-spacing:1px;
   }
-  table{
-    width:100%;border-collapse:collapse;font-size:13px;
-  }
-  th,td{padding:5px 10px;text-align:left}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:6px 10px;text-align:left}
   th{color:#666;font-weight:400;font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
   td{color:#bbb;font-variant-numeric:tabular-nums}
 
-  table.params-table tr{border-bottom:1px solid rgba(255,255,255,0.04)}
-  table.params-table td:first-child{color:#888;font-family:"Cascadia Code","Fira Code",monospace;font-size:12px;width:130px}
-  table.params-table td:last-child{color:#666;font-size:12px}
-
-  /* highlight row for current state */
   .row-active{background:rgba(255,255,255,0.03)}
   .row-active td:first-child{color:#fff}
-
-  /* ── Full reference table ───────────────── */
-  .full-ref{max-width:680px;width:100%;padding:0 16px;margin-bottom:48px}
-  .full-ref h2{font-size:16px;color:#888;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);letter-spacing:1px}
-  .full-ref table{font-size:12px}
-  .full-ref th{white-space:nowrap}
-  .full-ref .color-swatch{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:5px}
-  .full-ref td:nth-child(1){font-weight:600}
-  .full-ref td:nth-child(2){font-family:"Cascadia Code","Fira Code",monospace}
-  .full-ref td:nth-child(8){font-family:"Cascadia Code","Fira Code",monospace;color:#888;font-size:11px}
+  .color-swatch{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:5px}
 
   /* ── Footer ─────────────────────────────── */
   footer{
@@ -118,12 +102,10 @@
   <button class="state-btn" data-state="compacting">压缩</button>
 </div>
 
-<div class="params" id="paramsPanel"></div>
-
-<div class="full-ref">
-  <h2>全部状态参数一览</h2>
+<div class="params">
+  <h2>状态参数一览</h2>
   <div style="overflow-x:auto">
-  <table id="fullRefTable"></table>
+  <table id="refTable"></table>
   </div>
 </div>
 
@@ -333,92 +315,54 @@ function frame(ts){
 function setState(name){
   if(targetState===name)return;
   targetState=name;
-  // update UI
   document.querySelectorAll(".state-btn").forEach(function(b){b.classList.toggle("active",b.dataset.state===name)});
   var lb=document.getElementById("stateLabel");
   lb.textContent=CONFIGS[name].label;
   lb.className="state-label "+name;
-  renderParamTable(name);
+  refreshActiveRow();
 }
 window.setState=setState;
 
 // ═══════════════════════════════════════════════════════════════════════
-// Parameter panel
+// Reference table — key parameters only
 // ═══════════════════════════════════════════════════════════════════════
 
-var paramDefs=[
-  {key:"color",   name:"主色 Main Color",     desc:"环主体颜色。决定光环的视觉识别色，6 状态各有专属色"},
-  {key:"halo",    name:"辉光 Halo Color",     desc:"外层辉光色。比主色更浅，围绕环主体产生柔光扩散效果"},
-  {key:"period",  name:"周期 Period",         desc:"光环绕行一圈的时长（秒）。越小旋转越快，反映状态紧迫度", unit:"s"},
-  {key:"dashes",  name:"段数 Segments",       desc:"环的虚线段数。段数越多越细碎，活跃感越强。dash 数组为 [实线段,虚线段,…] 交替", unit:"count"},
-  {key:"ms",      name:"变形速度 Morph Speed",desc:"段长度正弦波动的频率。0 则段长度固定，越大波动越剧烈", unit:"Hz"},
-  {key:"md",      name:"变形幅度 Morph Depth",desc:"段长度正弦波动的幅度。配合 ms 产生蠕动感，0 则无变形", unit:"ratio"},
-  {key:"amin",    name:"最小透明度 α min",    desc:"呼吸周期中的最低不透明度。避免光环完全不可见"},
-  {key:"amax",    name:"最大透明度 α max",    desc:"呼吸周期中的峰值不透明度。光环最亮时的强度"},
-  {key:"br",      name:"呼吸周期 Breathe",    desc:"透明度正弦呼吸的周期（秒）。0 表示不呼吸，恒定在 α max", unit:"s"},
-  {key:"rp",      name:"半径脉冲 Radius Pulse",desc:"光环半径正弦脉冲幅度（比例）。仅 compacting 使用，其他状态为 0", unit:"ratio"},
-  {key:"rpperiod",name:"脉冲周期 RP Period",   desc:"半径脉冲的正弦周期。仅 compacting 有效", unit:"s"},
-];
-
-var nameMap={color:"color",halo:"halo",period:"周期 Period",dashes:"段数 Segments",ms:"变形速度 Morph Speed",md:"变形幅度 Morph Depth",amin:"最小透明度 α min",amax:"最大透明度 α max",br:"呼吸周期 Breathe",rp:"半径脉冲 Radius Pulse",rpperiod:"脉冲周期 RP Period"};
-
-function fmtDashes(d){return"["+d.join(", ")+"]  → "+Math.floor(d.length/2)+" 段"}
-
-function fmtVal(key,val){
-  if(key==="dashes")return fmtDashes(val);
-  if(typeof val==="number"){if(val===0&&key!=="period")return"0 (关闭)";if(val<1)return val.toFixed(3);return val.toFixed(1)}
-  return String(val);
-}
-
-function renderParamTable(stateName){
-  var cfg=CONFIGS[stateName];
-  var rows=[];
-  for(var i=0;i<paramDefs.length;i++){
-    var pd=paramDefs[i];
-    rows.push({key:pd.key,name:pd.name,value:cfg[pd.key],desc:pd.desc,unit:pd.unit||""});
-  }
-  var h='<h2>当前状态参数 — '+cfg.label+'</h2>';
-  h+='<p style="color:#666;font-size:12px;margin-bottom:10px">'+cfg.desc+'</p>';
-  h+='<table class="params-table">';
-  for(var r=0;r<rows.length;r++){
-    h+='<tr'+(['color','halo'].indexOf(rows[r].key)>=0?' class="row-active"':"")+'>';
-    h+='<td>'+rows[r].name+'</td>';
-    h+='<td>'+fmtVal(rows[r].key,rows[r].value)+(rows[r].unit?' <span style="color:#555">'+rows[r].unit+'</span>':"")+'</td>';
-    h+='<td>'+rows[r].desc+'</td></tr>';
-  }
-  h+='</table>';
-  document.getElementById("paramsPanel").innerHTML=h;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Full reference table
-// ═══════════════════════════════════════════════════════════════════════
-
-(function buildFullRef(){
-  var keys=["color","halo","period","dashes","ms","md","amin","amax","br","rp","rpperiod"];
-  var h='<thead><tr><th>状态</th>';
-  for(var i=0;i<keys.length;i++)h+='<th>'+keys[i]+'</th>';
-  h+='</tr></thead><tbody>';
+(function buildRef(){
   var states=["idle","thinking","executing","input_needed","completed","compacting"];
+  var cols= ["颜色","周期","段数","呼吸","说明"];
+  function segCount(d){return Math.floor(d.length/2)}
+  function breatheInfo(c){
+    if(!c.br) return "—";
+    return "α "+c.amin.toFixed(2)+"–"+c.amax.toFixed(2)+" / "+c.br.toFixed(1)+"s";
+  }
+  var h='<thead><tr><th>状态</th>';
+  for(var i=0;i<cols.length;i++)h+='<th>'+cols[i]+'</th>';
+  h+='</tr></thead><tbody>';
   for(var s=0;s<states.length;s++){
-    var c=CONFIGS[states[s]];
-    h+='<tr>';
+    var c=CONFIGS[states[s]], rowClass="";
+    if(states[s]===targetState) rowClass=' class="row-active"';
+    h+='<tr'+rowClass+'>';
     h+='<td><span class="color-swatch" style="background:'+c.color+'"></span>'+c.label+'</td>';
-    for(var k=0;k<keys.length;k++){
-      var v=c[keys[k]];
-      h+='<td>'+(keys[k]==="dashes"?fmtDashes(v):Array.isArray(v)?v.join(","):v)+'</td>';
-    }
+    h+='<td><span class="color-swatch" style="background:'+c.color+'"></span>'+c.color+'</td>';
+    h+='<td>'+c.period.toFixed(1)+'s / '+segCount(c.dashes)+'段</td>';
+    h+='<td>'+breatheInfo(c)+'</td>';
+    h+='<td style="color:#888;font-size:12px">'+c.desc+'</td>';
     h+='</tr>';
   }
   h+='</tbody>';
-  document.getElementById("fullRefTable").innerHTML=h;
+  document.getElementById("refTable").innerHTML=h;
 })();
+function refreshActiveRow(){
+  var rows=document.querySelectorAll("#refTable tbody tr");
+  rows.forEach(function(r,i){
+    r.classList.toggle("row-active",CONFIGS[["idle","thinking","executing","input_needed","completed","compacting"][i]]===CONFIGS[targetState]);
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // Init
 // ═══════════════════════════════════════════════════════════════════════
 
-renderParamTable("idle");
 rafId=requestAnimationFrame(frame);
 
 document.getElementById("statePicker").addEventListener("click",function(e){
