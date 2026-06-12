@@ -8,28 +8,38 @@
   *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
   body{
     background:#0d0d0d;color:#ccc;font:14px/1.6 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;
-    display:flex;flex-direction:column;align-items:center;min-height:100vh;
-    overflow-x:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:100vh;overflow-x:hidden;gap:24px;
   }
   header{
-    text-align:center;padding:32px 16px 20px;
+    text-align:center;padding:0 16px;
   }
-  header h1{font-size:28px;font-weight:600;color:#eee;letter-spacing:1px}
-  header p{font-size:13px;color:#666;margin-top:4px}
+  header h1{font-size:32px;font-weight:600;color:#eee;letter-spacing:2px}
+  header p{font-size:14px;color:#555;margin-top:6px}
 
   .canvas-wrap{
-    position:relative;width:340px;height:340px;margin:8px auto;
+    position:relative;width:360px;height:360px;
     border-radius:50%;
-    box-shadow:0 0 80px rgba(128,128,128,0.06);
+    box-shadow:0 0 100px rgba(128,128,128,0.06);
   }
   canvas{display:block;width:100%;height:100%}
 
+  .state-label{
+    text-align:center;font-size:20px;font-weight:600;transition:color .3s;
+  }
+  .state-label.idle{color:#aaaaaa}
+  .state-label.thinking{color:#ff8830}
+  .state-label.executing{color:#3399ff}
+  .state-label.input_needed{color:#ee3333}
+  .state-label.completed{color:#33cc55}
+  .state-label.compacting{color:#9944ff}
+
   .state-picker{
-    display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0;
+    display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
   }
   .state-btn{
-    padding:7px 18px;border:1px solid rgba(255,255,255,0.15);border-radius:20px;
-    background:transparent;color:#aaa;font-size:13px;cursor:pointer;transition:all .2s;
+    padding:9px 24px;border:1px solid rgba(255,255,255,0.15);border-radius:22px;
+    background:transparent;color:#aaa;font-size:14px;cursor:pointer;transition:all .25s;
     font-family:inherit;
   }
   .state-btn:hover{border-color:rgba(255,255,255,0.35);color:#ddd}
@@ -42,18 +52,8 @@
   .state-btn[data-state="completed"].active,.state-btn[data-state="completed"]:hover{color:#33cc55;border-color:#33cc55}
   .state-btn[data-state="compacting"].active,.state-btn[data-state="compacting"]:hover{color:#9944ff;border-color:#9944ff}
 
-  .state-label{
-    text-align:center;font-size:18px;font-weight:600;margin-top:4px;transition:color .3s;
-  }
-  .state-label.idle{color:#aaaaaa}
-  .state-label.thinking{color:#ff8830}
-  .state-label.executing{color:#3399ff}
-  .state-label.input_needed{color:#ee3333}
-  .state-label.completed{color:#33cc55}
-  .state-label.compacting{color:#9944ff}
-
   footer{
-    text-align:center;padding:32px 16px;color:#444;font-size:12px;
+    color:#3a3a3a;font-size:12px;
   }
 </style>
 </head>
