@@ -17,7 +17,6 @@
   header h1{font-size:28px;font-weight:600;color:#eee;letter-spacing:1px}
   header p{font-size:13px;color:#666;margin-top:4px}
 
-  /* ── Canvas zone ────────────────────────── */
   .canvas-wrap{
     position:relative;width:340px;height:340px;margin:8px auto;
     border-radius:50%;
@@ -25,7 +24,6 @@
   }
   canvas{display:block;width:100%;height:100%}
 
-  /* ── State selector ─────────────────────── */
   .state-picker{
     display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0;
   }
@@ -44,7 +42,6 @@
   .state-btn[data-state="completed"].active,.state-btn[data-state="completed"]:hover{color:#33cc55;border-color:#33cc55}
   .state-btn[data-state="compacting"].active,.state-btn[data-state="compacting"]:hover{color:#9944ff;border-color:#9944ff}
 
-  /* ── State label ────────────────────────── */
   .state-label{
     text-align:center;font-size:18px;font-weight:600;margin-top:4px;transition:color .3s;
   }
@@ -55,36 +52,16 @@
   .state-label.completed{color:#33cc55}
   .state-label.compacting{color:#9944ff}
 
-  /* ── Reference table ───────────────────── */
-  .params{
-    max-width:720px;width:100%;padding:0 16px;margin:24px 0 48px;
-  }
-  .params h2{
-    font-size:16px;color:#888;margin-bottom:12px;padding-bottom:6px;
-    border-bottom:1px solid rgba(255,255,255,0.08);letter-spacing:1px;
-  }
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{padding:6px 10px;text-align:left}
-  th{color:#666;font-weight:400;font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
-  td{color:#bbb;font-variant-numeric:tabular-nums}
-
-  .row-active{background:rgba(255,255,255,0.03)}
-  .row-active td:first-child{color:#fff}
-  .color-swatch{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:5px}
-
-  /* ── Footer ─────────────────────────────── */
   footer{
-    text-align:center;padding:16px;color:#444;font-size:11px;
+    text-align:center;padding:32px 16px;color:#444;font-size:12px;
   }
-  footer a{color:#555;text-decoration:none}
-  footer a:hover{color:#888}
 </style>
 </head>
 <body>
 
 <header>
   <h1>Claude Halo</h1>
-  <p>Tauri v2 桌面叠加层 · 六状态光环动画系统</p>
+  <p>陪伴每一次思考</p>
 </header>
 
 <div class="canvas-wrap">
@@ -102,18 +79,7 @@
   <button class="state-btn" data-state="compacting">压缩</button>
 </div>
 
-<div class="params">
-  <h2>状态参数一览</h2>
-  <div style="overflow-x:auto">
-  <table id="refTable"></table>
-  </div>
-</div>
-
-<footer>
-  Claude Halo ·
-  <a href="https://github.com">GitHub</a> ·
-  Built with Tauri v2 + Canvas 2D
-</footer>
+<footer>Claude Halo</footer>
 
 <script>
 (function () { "use strict";
@@ -129,15 +95,14 @@ function hexRgb(h) {
 function lerp(a,b,t){return a+(b-a)*t}
 function lerpRgb(a,b,t){return[Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1],b[1],t)),Math.round(lerp(a[2],b[2],t))]}
 function rgba(r,g,b,a){return"rgba("+r+","+g+","+b+","+a+")"}
-function easeInOut(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2}
 
 var CONFIGS = {
-  idle:         {color:"#aaaaaa",halo:"#cccccc",period:6.0,dashes:[60,30],               ms:0,  md:0,   amin:0.30,amax:0.42,br:0,  rp:0,   rpperiod:0,   label:"待命 Idle",          desc:"Claude 等待用户输入，低存在感灰白色两段慢速旋转"},
-  thinking:     {color:"#ff8830",halo:"#ffdbb8",period:2.4,dashes:[70,35,45,30,25,20],   ms:0.6,md:0.4, amin:0.45,amax:0.90,br:5.2,rp:0,   rpperiod:0,   label:"思考 Thinking",       desc:"Claude 正在推理，琥珀色六段呼吸辉光，旋转较快"},
-  executing:    {color:"#3399ff",halo:"#bbddff",period:1.3,dashes:[50,25,20,20,35,25,25,22],ms:1.2,md:0.28,amin:0.60,amax:0.90,br:0,  rp:0,   rpperiod:0,   label:"执行 Executing",      desc:"执行工具调用，蓝色八段快速旋转，最高动态感"},
+  idle:         {color:"#aaaaaa",halo:"#cccccc",period:6.0,dashes:[60,30],               ms:0,  md:0,   amin:0.30,amax:0.42,br:0,  rp:0,   rpperiod:0,   label:"待命 Idle",          desc:"等待输入，低存在感灰白两段慢速旋转"},
+  thinking:     {color:"#ff8830",halo:"#ffdbb8",period:2.4,dashes:[70,35,45,30,25,20],   ms:0.6,md:0.4, amin:0.45,amax:0.90,br:5.2,rp:0,   rpperiod:0,   label:"思考 Thinking",       desc:"正在推理，琥珀色六段呼吸辉光"},
+  executing:    {color:"#3399ff",halo:"#bbddff",period:1.3,dashes:[50,25,20,20,35,25,25,22],ms:1.2,md:0.28,amin:0.60,amax:0.90,br:0,  rp:0,   rpperiod:0,   label:"执行 Executing",      desc:"执行工具调用，蓝色八段高速旋转"},
   input_needed: {color:"#ee3333",halo:"#ffcccc",period:2.8,dashes:[80,50,30,25],          ms:1.8,md:0.5, amin:0.52,amax:0.94,br:2.0,rp:0,   rpperiod:0,   label:"等待输入 Input Needed",desc:"需要用户响应，红色四段呼吸提醒"},
-  completed:    {color:"#33cc55",halo:"#bbffcc",period:5.0,dashes:[70,35,45,30,25,20],   ms:0.5,md:0.3, amin:0.38,amax:0.84,br:6.0,rp:0,   rpperiod:0,   label:"已完成 Completed",     desc:"任务完成，绿色六段柔和呼吸，3秒后若用户正在看终端则回到待命"},
-  compacting:   {color:"#9944ff",halo:"#ddccff",period:2.1,dashes:[35,20,35,20,35,20],   ms:0.4,md:0.25,amin:0.38,amax:0.80,br:4.0,rp:0.12,rpperiod:1.6, label:"压缩 Compacting",     desc:"上下文压缩中，紫色六段带半径脉冲呼吸"},
+  completed:    {color:"#33cc55",halo:"#bbffcc",period:5.0,dashes:[70,35,45,30,25,20],   ms:0.5,md:0.3, amin:0.38,amax:0.84,br:6.0,rp:0,   rpperiod:0,   label:"已完成 Completed",     desc:"任务完成，绿色六段柔和呼吸"},
+  compacting:   {color:"#9944ff",halo:"#ddccff",period:2.1,dashes:[35,20,35,20,35,20],   ms:0.4,md:0.25,amin:0.38,amax:0.80,br:4.0,rp:0.12,rpperiod:1.6, label:"压缩 Compacting",     desc:"上下文压缩，紫色六段半径脉冲"},
 };
 
 var MORPH_DURATION = 420;
@@ -287,7 +252,6 @@ function frame(ts){
 
   ctx.clearRect(0,0,w,h);
 
-  // Detect state change
   if(lifecycle==="active"&&targetState!==currentState&&!morphActive){
     pulseSettleStart=0;
     morphFrom=currentCfg;morphStart=ts;morphActive=true;
@@ -319,45 +283,8 @@ function setState(name){
   var lb=document.getElementById("stateLabel");
   lb.textContent=CONFIGS[name].label;
   lb.className="state-label "+name;
-  refreshActiveRow();
 }
 window.setState=setState;
-
-// ═══════════════════════════════════════════════════════════════════════
-// Reference table — key parameters only
-// ═══════════════════════════════════════════════════════════════════════
-
-(function buildRef(){
-  var states=["idle","thinking","executing","input_needed","completed","compacting"];
-  var cols= ["颜色","周期","段数","呼吸","说明"];
-  function segCount(d){return Math.floor(d.length/2)}
-  function breatheInfo(c){
-    if(!c.br) return "—";
-    return "α "+c.amin.toFixed(2)+"–"+c.amax.toFixed(2)+" / "+c.br.toFixed(1)+"s";
-  }
-  var h='<thead><tr><th>状态</th>';
-  for(var i=0;i<cols.length;i++)h+='<th>'+cols[i]+'</th>';
-  h+='</tr></thead><tbody>';
-  for(var s=0;s<states.length;s++){
-    var c=CONFIGS[states[s]], rowClass="";
-    if(states[s]===targetState) rowClass=' class="row-active"';
-    h+='<tr'+rowClass+'>';
-    h+='<td><span class="color-swatch" style="background:'+c.color+'"></span>'+c.label+'</td>';
-    h+='<td><span class="color-swatch" style="background:'+c.color+'"></span>'+c.color+'</td>';
-    h+='<td>'+c.period.toFixed(1)+'s / '+segCount(c.dashes)+'段</td>';
-    h+='<td>'+breatheInfo(c)+'</td>';
-    h+='<td style="color:#888;font-size:12px">'+c.desc+'</td>';
-    h+='</tr>';
-  }
-  h+='</tbody>';
-  document.getElementById("refTable").innerHTML=h;
-})();
-function refreshActiveRow(){
-  var rows=document.querySelectorAll("#refTable tbody tr");
-  rows.forEach(function(r,i){
-    r.classList.toggle("row-active",CONFIGS[["idle","thinking","executing","input_needed","completed","compacting"][i]]===CONFIGS[targetState]);
-  });
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 // Init
