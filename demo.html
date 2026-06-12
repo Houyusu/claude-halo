@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Halo — 状态演示</title>
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#0d0d0d;color:#ccc;font:14px/1.6 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;min-height:100vh;
+    overflow-x:hidden;
+  }
+  header{
+    text-align:center;padding:32px 16px 20px;
+  }
+  header h1{font-size:28px;font-weight:600;color:#eee;letter-spacing:1px}
+  header p{font-size:13px;color:#666;margin-top:4px}
+
+  /* ── Canvas zone ────────────────────────── */
+  .canvas-wrap{
+    position:relative;width:340px;height:340px;margin:8px auto;
+    border-radius:50%;
+    box-shadow:0 0 80px rgba(128,128,128,0.06);
+  }
+  canvas{display:block;width:100%;height:100%}
+
+  /* ── State selector ─────────────────────── */
+  .state-picker{
+    display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0;
+  }
+  .state-btn{
+    padding:7px 18px;border:1px solid rgba(255,255,255,0.15);border-radius:20px;
+    background:transparent;color:#aaa;font-size:13px;cursor:pointer;transition:all .2s;
+    font-family:inherit;
+  }
+  .state-btn:hover{border-color:rgba(255,255,255,0.35);color:#ddd}
+  .state-btn.active{border-color:currentColor}
+
+  .state-btn[data-state="idle"].active,.state-btn[data-state="idle"]:hover{color:#aaaaaa;border-color:#aaaaaa}
+  .state-btn[data-state="thinking"].active,.state-btn[data-state="thinking"]:hover{color:#ff8830;border-color:#ff8830}
+  .state-btn[data-state="executing"].active,.state-btn[data-state="executing"]:hover{color:#3399ff;border-color:#3399ff}
+  .state-btn[data-state="input_needed"].active,.state-btn[data-state="input_needed"]:hover{color:#ee3333;border-color:#ee3333}
+  .state-btn[data-state="completed"].active,.state-btn[data-state="completed"]:hover{color:#33cc55;border-color:#33cc55}
+  .state-btn[data-state="compacting"].active,.state-btn[data-state="compacting"]:hover{color:#9944ff;border-color:#9944ff}
+
+  /* ── State label ────────────────────────── */
+  .state-label{
+    text-align:center;font-size:18px;font-weight:600;margin-top:4px;transition:color .3s;
+  }
+  .state-label.idle{color:#aaaaaa}
+  .state-label.thinking{color:#ff8830}
+  .state-label.executing{color:#3399ff}
+  .state-label.input_needed{color:#ee3333}
+  .state-label.completed{color:#33cc55}
+  .state-label.compacting{color:#9944ff}
+
+  /* ── Parameter panel ────────────────────── */
+  .params{
+    max-width:680px;width:100%;padding:0 16px;margin:24px 0 48px;
+  }
+  .params h2{
+    font-size:16px;color:#888;margin-bottom:12px;padding-bottom:6px;
+    border-bottom:1px solid rgba(255,255,255,0.08);letter-spacing:1px;
+  }
+  table{
+    width:100%;border-collapse:collapse;font-size:13px;
+  }
+  th,td{padding:5px 10px;text-align:left}
+  th{color:#666;font-weight:400;font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
+  td{color:#bbb;font-variant-numeric:tabular-nums}
+
+  table.params-table tr{border-bottom:1px solid rgba(255,255,255,0.04)}
+  table.params-table td:first-child{color:#888;font-family:"Cascadia Code","Fira Code",monospace;font-size:12px;width:130px}
+  table.params-table td:last-child{color:#666;font-size:12px}
+
+  /* highlight row for current state */
+  .row-active{background:rgba(255,255,255,0.03)}
+  .row-active td:first-child{color:#fff}
+
+  /* ── Full reference table ───────────────── */
+  .full-ref{max-width:680px;width:100%;padding:0 16px;margin-bottom:48px}
+  .full-ref h2{font-size:16px;color:#888;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);letter-spacing:1px}
+  .full-ref table{font-size:12px}
+  .full-ref th{white-space:nowrap}
+  .full-ref .color-swatch{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:5px}
+  .full-ref td:nth-child(1){font-weight:600}
+  .full-ref td:nth-child(2){font-family:"Cascadia Code","Fira Code",monospace}
+  .full-ref td:nth-child(8){font-family:"Cascadia Code","Fira Code",monospace;color:#888;font-size:11px}
+
+  /* ── Footer ─────────────────────────────── */
+  footer{
+    text-align:center;padding:16px;color:#444;font-size:11px;
+  }
+  footer a{color:#555;text-decoration:none}
+  footer a:hover{color:#888}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Claude Halo</h1>
+  <p>Tauri v2 桌面叠加层 · 六状态光环动画系统</p>
+</header>
+
+<div class="canvas-wrap">
+  <canvas id="halo"></canvas>
+</div>
+
+<div class="state-label" id="stateLabel">待命 Idle</div>
+
+<div class="state-picker" id="statePicker">
+  <button class="state-btn active" data-state="idle">待命</button>
+  <button class="state-btn" data-state="thinking">思考</button>
+  <button class="state-btn" data-state="executing">执行</button>
+  <button class="state-btn" data-state="input_needed">等待</button>
+  <button class="state-btn" data-state="completed">完成</button>
+  <button class="state-btn" data-state="compacting">压缩</button>
+</div>
+
+<div class="params" id="paramsPanel"></div>
+
+<div class="full-ref">
+  <h2>全部状态参数一览</h2>
+  <div style="overflow-x:auto">
+  <table id="fullRefTable"></table>
+  </div>
+</div>
+
+<footer>
+  Claude Halo ·
+  <a href="https://github.com">GitHub</a> ·
+  Built with Tauri v2 + Canvas 2D
+</footer>
+
+<script>
+(function () { "use strict";
+
+// ═══════════════════════════════════════════════════════════════════════
+// Render engine (standalone — adapted from halo.js)
+// ═══════════════════════════════════════════════════════════════════════
+
+function hexRgb(h) {
+  var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
+  return m ? [parseInt(m[1],16),parseInt(m[2],16),parseInt(m[3],16)]:[255,255,255];
+}
+function lerp(a,b,t){return a+(b-a)*t}
+function lerpRgb(a,b,t){return[Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1],b[1],t)),Math.round(lerp(a[2],b[2],t))]}
+function rgba(r,g,b,a){return"rgba("+r+","+g+","+b+","+a+")"}
+function easeInOut(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2}
+
+var CONFIGS = {
+  idle:         {color:"#aaaaaa",halo:"#cccccc",period:6.0,dashes:[60,30],               ms:0,  md:0,   amin:0.30,amax:0.42,br:0,  rp:0,   rpperiod:0,   label:"待命 Idle",          desc:"Claude 等待用户输入，低存在感灰白色两段慢速旋转"},
+  thinking:     {color:"#ff8830",halo:"#ffdbb8",period:2.4,dashes:[70,35,45,30,25,20],   ms:0.6,md:0.4, amin:0.45,amax:0.90,br:5.2,rp:0,   rpperiod:0,   label:"思考 Thinking",       desc:"Claude 正在推理，琥珀色六段呼吸辉光，旋转较快"},
+  executing:    {color:"#3399ff",halo:"#bbddff",period:1.3,dashes:[50,25,20,20,35,25,25,22],ms:1.2,md:0.28,amin:0.60,amax:0.90,br:0,  rp:0,   rpperiod:0,   label:"执行 Executing",      desc:"执行工具调用，蓝色八段快速旋转，最高动态感"},
+  input_needed: {color:"#ee3333",halo:"#ffcccc",period:2.8,dashes:[80,50,30,25],          ms:1.8,md:0.5, amin:0.52,amax:0.94,br:2.0,rp:0,   rpperiod:0,   label:"等待输入 Input Needed",desc:"需要用户响应，红色四段呼吸提醒"},
+  completed:    {color:"#33cc55",halo:"#bbffcc",period:5.0,dashes:[70,35,45,30,25,20],   ms:0.5,md:0.3, amin:0.38,amax:0.84,br:6.0,rp:0,   rpperiod:0,   label:"已完成 Completed",     desc:"任务完成，绿色六段柔和呼吸，3秒后若用户正在看终端则回到待命"},
+  compacting:   {color:"#9944ff",halo:"#ddccff",period:2.1,dashes:[35,20,35,20,35,20],   ms:0.4,md:0.25,amin:0.38,amax:0.80,br:4.0,rp:0.12,rpperiod:1.6, label:"压缩 Compacting",     desc:"上下文压缩中，紫色六段带半径脉冲呼吸"},
+};
+
+var MORPH_DURATION = 420;
+var ENTRY_DURATION = 550;
+
+var canvas = document.getElementById("halo");
+var ctx = canvas.getContext("2d");
+var time=0, lastT=null, rafId=null;
+
+var targetState = "idle";
+var currentState = "idle", currentCfg = CONFIGS.idle;
+var morphFrom=null, morphStart=0, morphActive=false;
+
+var lifecycle="entering", entryStart=null;
+var pulseSettleStart=0, PULSE_SETTLE_DELAY=0.20, PULSE_RAMP_DURATION=0.50;
+
+function resize(){
+  var dpr=window.devicePixelRatio||1;
+  var w=canvas.clientWidth, h=canvas.clientHeight;
+  canvas.width=w*dpr;canvas.height=h*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+resize();window.addEventListener("resize",resize);
+
+function morphDashArrays(a,b,t){
+  var nA=a.length/2, nB=b.length/2;
+  var nFloat=lerp(nA,nB,t), nDraw=Math.max(1,Math.ceil(nFloat));
+  var result=[];
+  var totalA=a.reduce(function(s,v){return s+v},0), totalB=b.reduce(function(s,v){return s+v},0);
+  var totalTarget=lerp(totalA,totalB,t);
+  for(var i=0;i<nDraw;i++){
+    var frac=i/nDraw;
+    var ia=Math.floor(frac*nA)%nA, ib=Math.floor(frac*nB)%nB;
+    var dl=lerp(a[ia*2],b[ib*2],t), gl=lerp(a[ia*2+1],b[ib*2+1],t);
+    var bs=nDraw<=nFloat?1:1-(nDraw-nFloat);bs=Math.max(0.02,bs);
+    result.push(dl*bs,gl*bs);
+  }
+  var cur=result.reduce(function(s,v){return s+v},0);
+  if(cur>0){var sc=totalTarget/cur;for(var j=0;j<result.length;j++)result[j]*=sc}
+  return result;
+}
+
+function morphConfig(a,b,t){
+  return {
+    color:lerpRgb(hexRgb(a.color),hexRgb(b.color),t),
+    halo:lerpRgb(hexRgb(a.halo),hexRgb(b.halo),t),
+    period:lerp(a.period,b.period,t), ms:lerp(a.ms,b.ms,t), md:lerp(a.md,b.md,t),
+    amin:lerp(a.amin,b.amin,t), amax:lerp(a.amax,b.amax,t),
+    br:lerp(a.br,b.br,t), rp:lerp(a.rp,b.rp,t), rpperiod:lerp(a.rpperiod,b.rpperiod,t),
+    dashes:morphDashArrays(a.dashes,b.dashes,t),
+  };
+}
+
+function drawRing(cx,cy,R,cfg,alphaMul,timeOff){
+  if(alphaMul<=0.001)return;
+  var t=time+(timeOff||0);
+  var mainRgb=Array.isArray(cfg.color)?cfg.color:hexRgb(cfg.color);
+  var haloRgb=Array.isArray(cfg.halo)?cfg.halo:hexRgb(cfg.halo);
+
+  var breathe=0;
+  if(cfg.br>0){var ph=(t%cfg.br)/cfg.br;breathe=Math.max(0,Math.sin(ph*Math.PI*2))}
+  var alpha=(cfg.br>0?cfg.amin+(cfg.amax-cfg.amin)*breathe:cfg.amax)*alphaMul;
+
+  var offset=((t/cfg.period)*Math.PI*2)%(Math.PI*2);
+  var rawSum=cfg.dashes.reduce(function(a,b){return a+b},0);
+
+  var haloLw=Math.max(R*0.28,1.5), haloAngExt=haloLw/R, minGap=haloAngExt*1.20;
+
+  var rawAngles=[];
+  for(var i=0;i<cfg.dashes.length;i++){
+    var morph=Math.sin(t*cfg.ms+i*2.1);
+    var ang=(cfg.dashes[i]/rawSum)*Math.PI*2;
+    if(i%2===0){ang*=1+cfg.md*morph;ang=Math.max(0.02,ang)}
+    else{ang*=1-cfg.md*0.5*morph;ang=Math.max(minGap,ang)}
+    rawAngles.push(ang);
+  }
+  var dashTotal=0,gapTotal=0;
+  for(var j=0;j<rawAngles.length;j++){if(j%2===0)dashTotal+=rawAngles[j];else gapTotal+=rawAngles[j]}
+  var dashTarget=Math.PI*2-gapTotal, dashScale=dashTotal>0.001?dashTarget/dashTotal:1;
+
+  var cumul=0;
+  for(var k=0;k<rawAngles.length;k++){
+    var ang=k%2===0?rawAngles[k]*dashScale:rawAngles[k];
+    var a0=cumul-offset, a1=a0+ang;cumul+=ang;
+    if(k%2===1)continue;
+
+    ctx.strokeStyle=rgba(haloRgb[0],haloRgb[1],haloRgb[2],alpha*0.55);
+    ctx.lineWidth=haloLw;ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,a0,a1,false);ctx.stroke();
+
+    var mid=lerpRgb(haloRgb,mainRgb,0.5);
+    ctx.strokeStyle=rgba(mid[0],mid[1],mid[2],alpha*0.85);
+    ctx.lineWidth=Math.max(R*0.16,1);ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,a0,a1,false);ctx.stroke();
+
+    ctx.strokeStyle=rgba(mainRgb[0],mainRgb[1],mainRgb[2],alpha);
+    ctx.lineWidth=Math.max(R*0.10,1);ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,a0,a1,false);ctx.stroke();
+  }
+}
+
+function drawGlowBridge(cx,cy,R,a,b,t){
+  var ga=Math.sin(t*Math.PI)*0.32;if(ga<0.005)return;
+  var midRgb=lerpRgb(hexRgb(a.color),hexRgb(b.color),t);
+  ctx.strokeStyle=rgba(midRgb[0],midRgb[1],midRgb[2],ga*0.22);
+  ctx.lineWidth=Math.max(R*0.50,3.5);ctx.lineCap="round";
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2,false);ctx.stroke();
+  ctx.strokeStyle=rgba(midRgb[0],midRgb[1],midRgb[2],ga*0.40);
+  ctx.lineWidth=Math.max(R*0.22,1.8);ctx.lineCap="round";
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2,false);ctx.stroke();
+}
+
+function radiusPulseFactor(cfg,tNow){
+  if(!cfg.rp||cfg.rpperiod<=0)return 1;
+  if(pulseSettleStart<=0)return 1;
+  var elapsed=tNow-pulseSettleStart;if(elapsed<0)return 1;
+  var ramp=Math.min(1,Math.max(0,elapsed-PULSE_SETTLE_DELAY)/PULSE_RAMP_DURATION);
+  var erp=cfg.rp*(1-Math.pow(1-ramp,3));if(erp<=0.001)return 1;
+  return 1+erp*Math.sin((tNow%cfg.rpperiod)/cfg.rpperiod*Math.PI*2);
+}
+
+function frame(ts){
+  rafId=null;
+  if(!lastT)lastT=ts;
+  var dt=(ts-lastT)/1000;
+  if(dt<=0)dt=0.016;else if(dt>0.1)dt=0.1;
+  lastT=ts;time+=dt;
+
+  var w=canvas.clientWidth, h=canvas.clientHeight;
+  var cx=Math.floor(w/2), cy=Math.floor(h/2);
+  var baseR=Math.min(w,h)*0.38;
+
+  var entryScale=1,entryAlpha=1;
+  if(lifecycle==="entering"){
+    if(!entryStart)entryStart=ts;
+    var raw=Math.min((ts-entryStart)/ENTRY_DURATION,1);
+    var c1=1.70158;var eb=1+(c1+1)*Math.pow(raw-1,3)+c1*Math.pow(raw-1,2);
+    entryScale=0.2+0.8*eb;entryAlpha=1-Math.pow(1-raw,3);
+    if(raw>=1)lifecycle="active";
+  }
+
+  var ringScale=entryScale, ringAlpha=entryAlpha;
+
+  var activeCfg=morphActive?morphConfig(morphFrom,CONFIGS[targetState],Math.min((ts-morphStart)/MORPH_DURATION,1)):currentCfg;
+  var rpF=radiusPulseFactor(activeCfg,time);
+  var RR=baseR*ringScale*rpF;
+
+  ctx.clearRect(0,0,w,h);
+
+  // Detect state change
+  if(lifecycle==="active"&&targetState!==currentState&&!morphActive){
+    pulseSettleStart=0;
+    morphFrom=currentCfg;morphStart=ts;morphActive=true;
+  }
+
+  if(lifecycle!=="active"){
+    drawRing(cx,cy,RR,currentCfg,ringAlpha,0);
+  }else if(morphActive){
+    var elapsed=ts-morphStart, rawM=Math.min(elapsed/MORPH_DURATION,1);
+    var tE=rawM<0.5?2*rawM*rawM:1-Math.pow(-2*rawM+2,2)/2;
+    var interp=morphConfig(morphFrom,CONFIGS[targetState],tE);
+    drawRing(cx,cy,RR,interp,ringAlpha,0);
+    drawGlowBridge(cx,cy,RR,morphFrom,CONFIGS[targetState],tE);
+    if(rawM>=1){
+      morphActive=false;currentState=targetState;currentCfg=CONFIGS[targetState];morphFrom=null;
+      if(CONFIGS[targetState].rp>0)pulseSettleStart=time+0.06;
+    }
+  }else{
+    drawRing(cx,cy,RR,currentCfg,ringAlpha,0);
+  }
+
+  if(lifecycle!=="closed"){rafId=requestAnimationFrame(frame)}
+}
+
+function setState(name){
+  if(targetState===name)return;
+  targetState=name;
+  // update UI
+  document.querySelectorAll(".state-btn").forEach(function(b){b.classList.toggle("active",b.dataset.state===name)});
+  var lb=document.getElementById("stateLabel");
+  lb.textContent=CONFIGS[name].label;
+  lb.className="state-label "+name;
+  renderParamTable(name);
+}
+window.setState=setState;
+
+// ═══════════════════════════════════════════════════════════════════════
+// Parameter panel
+// ═══════════════════════════════════════════════════════════════════════
+
+var paramDefs=[
+  {key:"color",   name:"主色 Main Color",     desc:"环主体颜色。决定光环的视觉识别色，6 状态各有专属色"},
+  {key:"halo",    name:"辉光 Halo Color",     desc:"外层辉光色。比主色更浅，围绕环主体产生柔光扩散效果"},
+  {key:"period",  name:"周期 Period",         desc:"光环绕行一圈的时长（秒）。越小旋转越快，反映状态紧迫度", unit:"s"},
+  {key:"dashes",  name:"段数 Segments",       desc:"环的虚线段数。段数越多越细碎，活跃感越强。dash 数组为 [实线段,虚线段,…] 交替", unit:"count"},
+  {key:"ms",      name:"变形速度 Morph Speed",desc:"段长度正弦波动的频率。0 则段长度固定，越大波动越剧烈", unit:"Hz"},
+  {key:"md",      name:"变形幅度 Morph Depth",desc:"段长度正弦波动的幅度。配合 ms 产生蠕动感，0 则无变形", unit:"ratio"},
+  {key:"amin",    name:"最小透明度 α min",    desc:"呼吸周期中的最低不透明度。避免光环完全不可见"},
+  {key:"amax",    name:"最大透明度 α max",    desc:"呼吸周期中的峰值不透明度。光环最亮时的强度"},
+  {key:"br",      name:"呼吸周期 Breathe",    desc:"透明度正弦呼吸的周期（秒）。0 表示不呼吸，恒定在 α max", unit:"s"},
+  {key:"rp",      name:"半径脉冲 Radius Pulse",desc:"光环半径正弦脉冲幅度（比例）。仅 compacting 使用，其他状态为 0", unit:"ratio"},
+  {key:"rpperiod",name:"脉冲周期 RP Period",   desc:"半径脉冲的正弦周期。仅 compacting 有效", unit:"s"},
+];
+
+var nameMap={color:"color",halo:"halo",period:"周期 Period",dashes:"段数 Segments",ms:"变形速度 Morph Speed",md:"变形幅度 Morph Depth",amin:"最小透明度 α min",amax:"最大透明度 α max",br:"呼吸周期 Breathe",rp:"半径脉冲 Radius Pulse",rpperiod:"脉冲周期 RP Period"};
+
+function fmtDashes(d){return"["+d.join(", ")+"]  → "+Math.floor(d.length/2)+" 段"}
+
+function fmtVal(key,val){
+  if(key==="dashes")return fmtDashes(val);
+  if(typeof val==="number"){if(val===0&&key!=="period")return"0 (关闭)";if(val<1)return val.toFixed(3);return val.toFixed(1)}
+  return String(val);
+}
+
+function renderParamTable(stateName){
+  var cfg=CONFIGS[stateName];
+  var rows=[];
+  for(var i=0;i<paramDefs.length;i++){
+    var pd=paramDefs[i];
+    rows.push({key:pd.key,name:pd.name,value:cfg[pd.key],desc:pd.desc,unit:pd.unit||""});
+  }
+  var h='<h2>当前状态参数 — '+cfg.label+'</h2>';
+  h+='<p style="color:#666;font-size:12px;margin-bottom:10px">'+cfg.desc+'</p>';
+  h+='<table class="params-table">';
+  for(var r=0;r<rows.length;r++){
+    h+='<tr'+(['color','halo'].indexOf(rows[r].key)>=0?' class="row-active"':"")+'>';
+    h+='<td>'+rows[r].name+'</td>';
+    h+='<td>'+fmtVal(rows[r].key,rows[r].value)+(rows[r].unit?' <span style="color:#555">'+rows[r].unit+'</span>':"")+'</td>';
+    h+='<td>'+rows[r].desc+'</td></tr>';
+  }
+  h+='</table>';
+  document.getElementById("paramsPanel").innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Full reference table
+// ═══════════════════════════════════════════════════════════════════════
+
+(function buildFullRef(){
+  var keys=["color","halo","period","dashes","ms","md","amin","amax","br","rp","rpperiod"];
+  var h='<thead><tr><th>状态</th>';
+  for(var i=0;i<keys.length;i++)h+='<th>'+keys[i]+'</th>';
+  h+='</tr></thead><tbody>';
+  var states=["idle","thinking","executing","input_needed","completed","compacting"];
+  for(var s=0;s<states.length;s++){
+    var c=CONFIGS[states[s]];
+    h+='<tr>';
+    h+='<td><span class="color-swatch" style="background:'+c.color+'"></span>'+c.label+'</td>';
+    for(var k=0;k<keys.length;k++){
+      var v=c[keys[k]];
+      h+='<td>'+(keys[k]==="dashes"?fmtDashes(v):Array.isArray(v)?v.join(","):v)+'</td>';
+    }
+    h+='</tr>';
+  }
+  h+='</tbody>';
+  document.getElementById("fullRefTable").innerHTML=h;
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════════════════
+
+renderParamTable("idle");
+rafId=requestAnimationFrame(frame);
+
+document.getElementById("statePicker").addEventListener("click",function(e){
+  var btn=e.target.closest(".state-btn");
+  if(!btn)return;
+  if(targetState===btn.dataset.state)return;
+  morphFrom=morphActive?morphConfig(morphFrom,CONFIGS[targetState],Math.min((performance.now()-morphStart)/MORPH_DURATION,1)):currentCfg;
+  morphStart=performance.now();morphActive=true;
+  pulseSettleStart=0;
+  setState(btn.dataset.state);
+});
+
+})();
+</script>
+</body>
+</html>
