@@ -203,10 +203,10 @@ fn main() {
                     // ── Read hook state ──────────────────────────
                     let raw_state = read_hook_state().unwrap_or(HaloState::Idle);
 
-                    // ── Heartbeat check (every ~3s) ──────────────
-                    if ticks % 20 == 0 {
+                    // ── Heartbeat check (every ~1.5s) ─────────────
+                    if ticks % 10 == 0 {
                         if let Some(age) = read_heartbeat_age() {
-                            if age.as_secs() >= 7 {
+                            if age.as_secs() >= 6 {
                                 // Heartbeat stale → Claude Code is gone
                                 let _ = win.close();
                                 break;
