@@ -245,6 +245,7 @@ fn main() {
                 let mut exec_since: Option<std::time::Instant> = None;
                 let mut completed_since: Option<std::time::Instant> = None;
                 let mut completed_consumed = false;
+                let mut compaction_completed = false; // hold green until user interacts
                 let mut think_hold_until: Option<std::time::Instant> = None;
                 let mut saw_non_executing = true;
                 // Process liveness check: find claude.exe via Toolhelp32
@@ -294,12 +295,15 @@ fn main() {
                         raw_state
                     };
 
-                    // Reset completed_consumed when user starts a new interaction.
-                    // Tool-free chats (including /compact) never enter the
-                    // Executing/InputNeeded branch that normally clears this flag,
-                    // so without this reset the next Completed would be skipped.
+                    // Reset completed_consumed / compaction_completed when user
+                    // starts a new interaction.  Tool-free chats (including /compact)
+                    // never enter the Executing/InputNeeded branch that normally clears
+                    // this flag, so without this reset the next Completed would be skipped.
                     if !matches!(new_state, HaloState::Idle | HaloState::Completed) && completed_consumed {
                         completed_consumed = false;
+                    }
+                    if !matches!(new_state, HaloState::Idle | HaloState::Completed) && compaction_completed {
+                        compaction_completed = false;
                     }
 
                     // ── Missed-completed injection ─────────────────
@@ -312,9 +316,21 @@ fn main() {
                             (Some(HaloState::Thinking | HaloState::Executing | HaloState::Compacting), HaloState::Idle)
                             | (Some(HaloState::Thinking | HaloState::Executing | HaloState::Compacting), HaloState::Completed) => {
                                 new_state = HaloState::Completed;
+                                // Compaction can take a long time — the user may have
+                                // walked away.  Hold green until they return and type.
+                                if matches!(displayed, Some(HaloState::Compacting)) {
+                                    compaction_completed = true;
+                                }
                             }
                             _ => {}
                         }
+                    }
+
+                    // Hold completed indefinitely after compaction — user may be away.
+                    // idle_prompt writes "idle" to the state file, but we keep showing
+                    // green until the user sends a new message.
+                    if compaction_completed && matches!(raw_state, HaloState::Idle) {
+                        new_state = HaloState::Completed;
                     }
 
                     // Thinking hold (1200ms minimum amber)
@@ -372,12 +388,15 @@ fn main() {
                     // Completed hold: once we start showing completed, lock it until
                     // the 3s display condition is met — even if idle_prompt
                     // notification overwrites the state file back to "idle".
+                    // Exception: compaction-completed holds indefinitely until user
+                    // interacts — but a new compaction or message releases it.
                     if completed_since.is_some() {
                         match new_state {
-                            HaloState::Thinking | HaloState::Executing | HaloState::InputNeeded => {
-                                // New user interaction — release hold
+                            HaloState::Thinking | HaloState::Executing | HaloState::InputNeeded | HaloState::Compacting => {
+                                // New user interaction or re-compaction — release hold
                                 completed_since = None;
                                 completed_consumed = false;
+                                compaction_completed = false;
                             }
                             _ => {
                                 // Keep showing completed
@@ -396,13 +415,18 @@ fn main() {
                                 displayed = Some(HaloState::Completed);
                             }
                         }
-                        let elapsed = completed_since.unwrap().elapsed();
-                        if elapsed.as_secs() >= 3 {
-                            completed_consumed = true;
-                            completed_since = None;
-                            let _ = win.emit("state-changed", HaloState::Idle.to_str());
-                            *st.lock().await = HaloState::Idle;
-                            displayed = Some(HaloState::Idle);
+                        // Normal completed: hold for 3s, then fade to idle.
+                        // Compaction completed: hold indefinitely — user may be
+                        // away and needs to see green when they return.
+                        if !compaction_completed {
+                            let elapsed = completed_since.unwrap().elapsed();
+                            if elapsed.as_secs() >= 3 {
+                                completed_consumed = true;
+                                completed_since = None;
+                                let _ = win.emit("state-changed", HaloState::Idle.to_str());
+                                *st.lock().await = HaloState::Idle;
+                                displayed = Some(HaloState::Idle);
+                            }
                         }
                         continue;
                     }
