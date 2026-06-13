@@ -1,0 +1,12 @@
+<!-- Idle state: gray two-segment slow rotation -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Outer halo -->
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#cccccc" stroke-width="5"
+          stroke-dasharray="75.4 37.7" stroke-linecap="round" opacity="0.55"/>
+  <!-- Mid layer -->
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#bbbbbb" stroke-width="3"
+          stroke-dasharray="75.4 37.7" stroke-linecap="round" opacity="0.85"/>
+  <!-- Core -->
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#aaaaaa" stroke-width="1.8"
+          stroke-dasharray="75.4 37.7" stroke-linecap="round"/>
+</svg>

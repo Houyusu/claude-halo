@@ -1,0 +1,9 @@
+<!-- Input needed state: red four-segment breathing -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#ffcccc" stroke-width="5"
+          stroke-dasharray="48.9 30.6 18.3 15.3" stroke-linecap="round" opacity="0.55"/>
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#ff6666" stroke-width="3"
+          stroke-dasharray="48.9 30.6 18.3 15.3" stroke-linecap="round" opacity="0.85"/>
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#ee3333" stroke-width="1.8"
+          stroke-dasharray="48.9 30.6 18.3 15.3" stroke-linecap="round"/>
+</svg>

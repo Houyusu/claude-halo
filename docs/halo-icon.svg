@@ -1,21 +1,14 @@
+<!-- Claude Halo icon — idle state gray ring -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="g1" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0%" stop-color="#ff8830"/>
-      <stop offset="25%" stop-color="#3399ff"/>
-      <stop offset="50%" stop-color="#33cc55"/>
-      <stop offset="75%" stop-color="#9944ff"/>
-      <stop offset="100%" stop-color="#ff8830"/>
-    </linearGradient>
-  </defs>
-  <circle cx="32" cy="32" r="26" fill="none" stroke="url(#g1)" stroke-width="4"
-          stroke-dasharray="18 6 24 8 14 6 20 6 16 8 22 6"
-          stroke-linecap="round" opacity="0.9"/>
-  <circle cx="32" cy="32" r="18" fill="none" stroke="url(#g1)" stroke-width="2.5"
-          stroke-dasharray="14 5 18 6 11 5 15 5 12 6 17 5"
-          stroke-linecap="round" opacity="0.55"/>
-  <circle cx="32" cy="32" r="10" fill="none" stroke="url(#g1)" stroke-width="1.5"
-          stroke-dasharray="10 4 13 5 8 4 11 4 9 5 12 4"
-          stroke-linecap="round" opacity="0.35"/>
-  <circle cx="32" cy="32" r="2" fill="rgba(255,255,255,0.6)"/>
+  <!-- Outer glow -->
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#cccccc" stroke-width="5.5"
+          stroke-dasharray="105 52" stroke-linecap="round" opacity="0.45"/>
+  <!-- Mid layer -->
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#bbbbbb" stroke-width="3.2"
+          stroke-dasharray="105 52" stroke-linecap="round" opacity="0.75"/>
+  <!-- Core ring -->
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#aaaaaa" stroke-width="1.8"
+          stroke-dasharray="105 52" stroke-linecap="round"/>
+  <!-- Center dot -->
+  <circle cx="32" cy="32" r="2" fill="#cccccc" opacity="0.5"/>
 </svg>

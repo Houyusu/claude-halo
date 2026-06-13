@@ -1,0 +1,9 @@
+<!-- Executing state: blue eight-segment fast rotation -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#bbddff" stroke-width="5"
+          stroke-dasharray="25.5 12.7 10.2 10.2 17.8 12.7 12.7 11.2" stroke-linecap="round" opacity="0.55"/>
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#66aaff" stroke-width="3"
+          stroke-dasharray="25.5 12.7 10.2 10.2 17.8 12.7 12.7 11.2" stroke-linecap="round" opacity="0.85"/>
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#3399ff" stroke-width="1.8"
+          stroke-dasharray="25.5 12.7 10.2 10.2 17.8 12.7 12.7 11.2" stroke-linecap="round"/>
+</svg>
