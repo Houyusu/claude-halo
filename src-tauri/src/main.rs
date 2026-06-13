@@ -15,7 +15,14 @@ extern "system" {
     // Focus restoration — save terminal window before halo steals it
     fn GetForegroundWindow() -> isize;
     fn SetForegroundWindow(hWnd: isize) -> i32;
+    // Process liveness check — detect when Claude Code has exited
+    fn OpenProcess(dwDesiredAccess: u32, bInheritHandle: i32, dwProcessId: u32) -> isize;
+    fn CloseHandle(hObject: isize) -> i32;
+    fn WaitForSingleObject(hHandle: isize, dwMilliseconds: u32) -> u32;
 }
+
+const PROCESS_SYNCHRONIZE: u32 = 0x00100000;
+const WAIT_TIMEOUT: u32 = 0x00000102;
 
 // Virtual key codes
 const VK_CONTROL: i32 = 0x11;
@@ -61,13 +68,31 @@ fn read_hook_state() -> Option<HaloState> {
     })
 }
 
-/// Shutdown signal file — created by the Stop hook when Claude Code exits.
-/// Halo checks this every tick and quits when found.
-/// halo-hook.ps1 NEVER creates this file, so idle_prompt can't defeat it.
-fn shutdown_signal_path() -> PathBuf {
-    std::env::var("TEMP")
-        .map(|d| PathBuf::from(d).join("claude-halo-shutdown.txt"))
-        .unwrap_or_else(|_| PathBuf::from("C:\\Windows\\Temp\\claude-halo-shutdown.txt"))
+/// Read the Claude Code PID written by the SessionStart hook.
+/// Returns None if the file doesn't exist or is malformed.
+fn read_claude_pid() -> Option<u32> {
+    let path = std::env::var("TEMP")
+        .map(|d| PathBuf::from(d).join("claude-halo-cc-pid.txt"))
+        .unwrap_or_else(|_| PathBuf::from("C:\\Windows\\Temp\\claude-halo-cc-pid.txt"));
+    let content = fs::read_to_string(&path).ok()?;
+    content.trim().parse().ok()
+}
+
+/// Check if a Windows process is still alive using a SYNCHRONIZE handle.
+/// OpenProcess + WaitForSingleObject(timeout=0) is the canonical check:
+///   WAIT_TIMEOUT → process still running
+///   anything else → process has exited (or OpenProcess failed)
+fn is_process_alive(pid: u32) -> bool {
+    if pid == 0 { return false; }
+    unsafe {
+        let handle = OpenProcess(PROCESS_SYNCHRONIZE, 0, pid);
+        if handle == 0 || handle == -1 {
+            return false;
+        }
+        let result = WaitForSingleObject(handle, 0);
+        CloseHandle(handle);
+        result == WAIT_TIMEOUT
+    }
 }
 
 /// Check if Ctrl+Shift+F12 is currently held down.
@@ -151,8 +176,10 @@ fn main() {
                 let mut completed_consumed = false;
                 let mut think_hold_until: Option<std::time::Instant> = None;
                 let mut saw_non_executing = true;
-                // Clean up any stale shutdown signal from a previous run
-                let _ = std::fs::remove_file(shutdown_signal_path());
+                // Process liveness check — detect Claude Code exit without
+                // relying on hook execution. SessionStart writes Claude's PID;
+                // halo checks every ~15 ticks (~2.25 s).
+                let mut alive_check_ticks: u32 = 0; // check on first tick
 
                 // Hotkey: debounced with cooldown to prevent rapid-fire
                 // ~2s cooldown = 13 ticks × 150ms
@@ -173,10 +200,20 @@ fn main() {
                     // ── Read hook state ──────────────────────────
                     let raw_state = read_hook_state().unwrap_or(HaloState::Idle);
 
-                    // ── Shutdown signal (every tick) ──────────────
-                    // Stop hook writes a shutdown file. Halo-hook.ps1
-                    // never touches it, so idle_prompt can't defeat it.
-                    let claude_exited = shutdown_signal_path().exists();
+                    // ── Process liveness check (every ~2.25 s) ──
+                    // Detect Claude Code exit by checking whether the
+                    // claude.exe PID (written by SessionStart) is still alive.
+                    // This does NOT rely on hooks firing during shutdown.
+                    if alive_check_ticks == 0 {
+                        if let Some(pid) = read_claude_pid() {
+                            if !is_process_alive(pid) {
+                                let _ = win.close();
+                                break;
+                            }
+                        }
+                        alive_check_ticks = 15;
+                    }
+                    alive_check_ticks -= 1;
 
                     let mut new_state = if matches!(raw_state, HaloState::Completed) && completed_consumed {
                         HaloState::Idle
@@ -290,24 +327,11 @@ fn main() {
                         if elapsed.as_secs() >= 3 {
                             completed_consumed = true;
                             completed_since = None;
-                            if claude_exited {
-                                // Green shown for 3s, Claude is gone — exit cleanly
-                                let _ = win.close();
-                                break;
-                            }
                             let _ = win.emit("state-changed", HaloState::Idle.to_str());
                             *st.lock().await = HaloState::Idle;
                             displayed = Some(HaloState::Idle);
                         }
                         continue;
-                    }
-
-                    // Claude exited while we weren't showing completed
-                    // (e.g. idle_prompt overwrote the completed signal).
-                    // Exit cleanly — no green to show.
-                    if claude_exited {
-                        let _ = win.close();
-                        break;
                     }
 
                     // Thinking / Idle
