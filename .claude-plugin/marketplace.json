@@ -9,7 +9,10 @@
   "plugins": [
     {
       "name": "claude-halo",
-      "source": "./",
+      "source": {
+        "source": "github",
+        "repo": "Houyusu/claude-halo"
+      },
       "description": "桌面光环指示器 — 六种颜色、六种动画，实时反映 Claude Code 运行状态",
       "version": "1.0.0",
       "author": {
