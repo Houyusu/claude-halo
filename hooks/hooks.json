@@ -6,6 +6,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "powershell -Command \"Get-Process claude-halo -ErrorAction SilentlyContinue | Stop-Process -Force\""
+          },
+          {
+            "type": "command",
             "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State idle"
           },
           {
@@ -52,15 +56,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State completed"
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State completed -NoHeartbeat"
           },
           {
             "type": "command",
-            "command": "powershell -Command \"Remove-Item $env:TEMP\\claude-halo-heartbeat.txt -Force -ErrorAction SilentlyContinue\""
-          },
-          {
-            "type": "command",
-            "command": "powershell -Command \"exit 0\""
+            "command": "powershell -Command \"Remove-Item $env:TEMP\\claude-halo-heartbeat.txt -Force -ErrorAction SilentlyContinue; exit 0\""
           }
         ]
       }

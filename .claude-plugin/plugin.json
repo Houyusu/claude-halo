@@ -1,6 +1,6 @@
 {
   "name": "claude-halo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "桌面光环指示器 — 为 Claude Code 提供思考/执行/空闲等状态的实时视觉反馈",
   "author": {
     "name": "Houyu"
