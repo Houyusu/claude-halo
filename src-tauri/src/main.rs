@@ -61,14 +61,13 @@ fn read_hook_state() -> Option<HaloState> {
     })
 }
 
-fn heartbeat_file_path() -> PathBuf {
+/// Shutdown signal file — created by the Stop hook when Claude Code exits.
+/// Halo checks this every tick and quits when found.
+/// halo-hook.ps1 NEVER creates this file, so idle_prompt can't defeat it.
+fn shutdown_signal_path() -> PathBuf {
     std::env::var("TEMP")
-        .map(|d| PathBuf::from(d).join("claude-halo-heartbeat.txt"))
-        .unwrap_or_else(|_| PathBuf::from("C:\\Windows\\Temp\\claude-halo-heartbeat.txt"))
-}
-
-fn heartbeat_file_exists() -> bool {
-    heartbeat_file_path().exists()
+        .map(|d| PathBuf::from(d).join("claude-halo-shutdown.txt"))
+        .unwrap_or_else(|_| PathBuf::from("C:\\Windows\\Temp\\claude-halo-shutdown.txt"))
 }
 
 /// Check if Ctrl+Shift+F12 is currently held down.
@@ -152,9 +151,8 @@ fn main() {
                 let mut completed_consumed = false;
                 let mut think_hold_until: Option<std::time::Instant> = None;
                 let mut saw_non_executing = true;
-                let mut ticks: u64 = 0;
-                let mut claude_was_alive = heartbeat_file_exists();
-                let mut claude_exited = false;
+                // Clean up any stale shutdown signal from a previous run
+                let _ = std::fs::remove_file(shutdown_signal_path());
 
                 // Hotkey: debounced with cooldown to prevent rapid-fire
                 // ~2s cooldown = 13 ticks × 150ms
@@ -162,7 +160,6 @@ fn main() {
 
                 loop {
                     interval.tick().await;
-                    ticks += 1;
 
                     // ── Hotkey check (Ctrl+Shift+F12) ────────────
                     if hotkey_cool > 0 {
@@ -176,21 +173,10 @@ fn main() {
                     // ── Read hook state ──────────────────────────
                     let raw_state = read_hook_state().unwrap_or(HaloState::Idle);
 
-                    // ── Heartbeat-signal check (every ~1.5s) ──────
-                    // Claude Code is gone when the heartbeat file disappears.
-                    // The Stop hook deletes it as the last step before exiting.
-                    // No timeout guessing — the signal is definitive.
-                    if ticks % 10 == 0 {
-                        let hb_exists = heartbeat_file_exists();
-                        if claude_was_alive && !hb_exists {
-                            // File was there, now gone → Claude said goodbye.
-                            claude_exited = true;
-                        }
-                        if hb_exists {
-                            // Still alive — reset any false signal
-                            claude_was_alive = true;
-                        }
-                    }
+                    // ── Shutdown signal (every tick) ──────────────
+                    // Stop hook writes a shutdown file. Halo-hook.ps1
+                    // never touches it, so idle_prompt can't defeat it.
+                    let claude_exited = shutdown_signal_path().exists();
 
                     let mut new_state = if matches!(raw_state, HaloState::Completed) && completed_consumed {
                         HaloState::Idle

@@ -56,11 +56,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State completed -NoHeartbeat"
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State completed"
           },
           {
             "type": "command",
-            "command": "powershell -Command \"Remove-Item $env:TEMP\\claude-halo-heartbeat.txt -Force -ErrorAction SilentlyContinue; exit 0\""
+            "command": "powershell -Command \"[System.IO.File]::WriteAllText(\\\"$env:TEMP\\claude-halo-shutdown.txt\\\", \\\"1\\\")\""
           }
         ]
       }
