@@ -60,7 +60,7 @@
           },
           {
             "type": "command",
-            "command": "powershell -Command \"[System.IO.File]::WriteAllText(\\\"$env:TEMP\\claude-halo-shutdown.txt\\\", \\\"1\\\")\""
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/shutdown-signal.ps1\""
           }
         ]
       }
