@@ -58,8 +58,8 @@
   var PULSE_RAMP_DURATION = 0.50; // 500ms gentle ramp
 
   // Lifecycle: 'entering' → 'active' → 'exiting'
-  var lifecycle = "entering", entryStart = null, ENTRY_DURATION = 550;
-  var exitStart = 0, EXIT_DURATION = 250;
+  var lifecycle = "entering", entryStart = null, ENTRY_DURATION = 1400;
+  var exitStart = 0, EXIT_DURATION = 900;
   // Callback after exit animation finishes (set by app.js)
   var onExitComplete = null;
 

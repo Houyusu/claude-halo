@@ -50,11 +50,4 @@ if ($rl) {
     if ($rp.Count -gt 0) { $sections += ($rp -join ' ') }
 }
 
-# Touch heartbeat so halo knows Claude Code is still alive
-try {
-    $hb = Join-Path $env:TEMP "claude-halo-heartbeat.txt"
-    $now = (Get-Date).ToUniversalTime().ToString("o")
-    [System.IO.File]::WriteAllText($hb, $now, [System.Text.UTF8Encoding]::new($false))
-} catch {}
-
 Write-Output ($sections -join ' | ')

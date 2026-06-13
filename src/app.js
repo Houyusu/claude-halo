@@ -32,7 +32,7 @@
     compacting: "压缩中",
   };
   var infos = {
-    idle: "Claude 未运行",
+    idle: "就绪 · 等待输入",
     thinking: "Claude 正在思考…",
     executing: "正在执行工具…",
     input_needed: "等待你的输入",
