@@ -1,35 +1,58 @@
 # Claude Halo
 
-A Tauri v2 desktop overlay that displays a morphing status ring reflecting Claude Code's session state.
+桌面光环指示器——在屏幕右下角显示一个彩色光环，实时反映 Claude Code 的运行状态。
 
-## States
+> 🪟 Windows 专属。需要已安装 Claude Code。
 
-| State | Color | Description |
-|---|---|---|
-| Idle | `#aaaaaa` | Waiting for input |
-| Thinking | `#ff8830` | Claude is reasoning |
-| Executing | `#3399ff` | Running tools |
-| Input Needed | `#ee3333` | Awaiting user response |
-| Completed | `#33cc55` | Task finished |
-| Compacting | `#9944ff` | Context compaction |
+## 效果
 
-## How It Works
+光环颜色随 Claude Code 状态自动变化：
 
-- **Auto-start**: Launched by Claude Code's `SessionStart` hook
-- **Heartbeat**: Refreshed every 5s via statusline hook; goes stale after 7s → auto-close
-- **Auto-close**: `Stop` hook sends `taskkill` on normal exit; heartbeat timeout catches crashes
+| 颜色 | 状态 | 含义 |
+|------|------|------|
+| 灰色 | 待命 | 等待你的输入 |
+| 橙色 | 思考 | Claude 正在推理 |
+| 蓝色 | 执行 | 正在调用工具（读写文件、运行命令等） |
+| 红色 | 等待输入 | Claude 需要你回答问题或确认操作 |
+| 绿色 | 完成 | 任务完成 |
+| 紫色 | 压缩 | 正在整理上下文 |
 
-## Build
+## 安装
 
-```bash
-cd src-tauri
-cargo build --release
+在 Claude Code 中输入：
+
+```
+/plugin marketplace add Houyusu/claude-halo
+/plugin install claude-halo@claude-halo
 ```
 
-Output: `src-tauri/target/release/claude-halo.exe`
+安装后，下次启动 Claude Code 时光环自动出现。
 
-## Tech Stack
+## 卸载
 
-- [Tauri v2](https://v2.tauri.app/) — Rust backend + webview frontend
-- Canvas 2D rendering — custom ring animation with morphing, glow bridge, and radius pulse
-- Win32 FFI — foreground window detection and global hotkey polling via `GetAsyncKeyState`
+```
+/plugin uninstall claude-halo
+```
+
+## 操作
+
+- **右键光环** → 打开菜单（切换点击穿透、退出）
+- **Ctrl+Shift+F12** → 快速切换点击穿透（让鼠标穿过光环操作后面的窗口）
+
+## 系统要求
+
+- Windows 10 / 11
+- Claude Code（通过 npm 安装）
+
+## 常见问题
+
+**光环没有出现？**
+- 确认已安装并启用：`/plugin` 查看插件列表
+- 确认 Claude Code 版本足够新（支持插件系统）
+- 检查 `%TEMP%\claude-halo-heartbeat.txt` 是否存在
+
+**光环一直在某个颜色不变？**
+- 如果 Claude Code 退出时光环没关闭，右键 → 退出，下次启动即可
+
+**可以调整光环位置或大小吗？**
+- 光环固定在屏幕右下角，大小不可调。这是为了保持视觉一致性和低干扰。

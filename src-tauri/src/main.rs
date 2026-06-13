@@ -10,18 +10,12 @@ use tokio::sync::Mutex;
 
 // ── Win32 FFI (all in-process, no subprocess spawns) ──────────────
 extern "system" {
-    // Foreground window detection
-    fn GetForegroundWindow() -> isize;
-    fn GetWindowThreadProcessId(hwnd: isize, pid: *mut u32) -> u32;
-    fn OpenProcess(access: u32, inherit: i32, pid: u32) -> isize;
-    fn CloseHandle(h: isize) -> i32;
-    fn QueryFullProcessImageNameW(h: isize, flags: u32, buf: *mut u16, len: *mut u32) -> i32;
-
     // Keyboard state polling — works from any thread, any window, no message pump needed
     fn GetAsyncKeyState(vk: i32) -> i16;
+    // Focus restoration — save terminal window before halo steals it
+    fn GetForegroundWindow() -> isize;
+    fn SetForegroundWindow(hWnd: isize) -> i32;
 }
-
-const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
 
 // Virtual key codes
 const VK_CONTROL: i32 = 0x11;
@@ -50,35 +44,6 @@ struct AppState { current_state: Arc<Mutex<HaloState>> }
 
 // ── Win32 helpers ─────────────────────────────────────────────────
 
-fn is_user_glancing_at_claude() -> bool {
-    unsafe {
-        let hwnd = GetForegroundWindow();
-        if hwnd == 0 { return false; }
-        let mut pid: u32 = 0;
-        GetWindowThreadProcessId(hwnd, &mut pid);
-        if pid == 0 { return false; }
-
-        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
-        if handle == 0 { return false; }
-
-        let mut buf: [u16; 260] = [0; 260];
-        let mut len: u32 = 260;
-        let ok = QueryFullProcessImageNameW(handle, 0, buf.as_mut_ptr(), &mut len);
-        CloseHandle(handle);
-
-        if ok == 0 { return false; }
-
-        let path = String::from_utf16_lossy(&buf[..len as usize]).to_lowercase();
-        if let Some(name) = path.rsplit('\\').next() {
-            name == "pwsh.exe" || name == "powershell.exe"
-                || name == "windowsterminal.exe" || name == "wt.exe"
-                || name == "cmd.exe" || name == "conhost.exe"
-        } else {
-            false
-        }
-    }
-}
-
 fn read_hook_state() -> Option<HaloState> {
     let path = std::env::var("TEMP")
         .map(|d| PathBuf::from(d).join("claude-halo-state.txt"))
@@ -96,14 +61,14 @@ fn read_hook_state() -> Option<HaloState> {
     })
 }
 
-fn read_heartbeat_age() -> Option<std::time::Duration> {
-    let path = std::env::var("TEMP")
+fn heartbeat_file_path() -> PathBuf {
+    std::env::var("TEMP")
         .map(|d| PathBuf::from(d).join("claude-halo-heartbeat.txt"))
-        .unwrap_or_else(|_| PathBuf::from("C:\\Windows\\Temp\\claude-halo-heartbeat.txt"));
+        .unwrap_or_else(|_| PathBuf::from("C:\\Windows\\Temp\\claude-halo-heartbeat.txt"))
+}
 
-    let meta = fs::metadata(&path).ok()?;
-    let mtime = meta.modified().ok()?;
-    mtime.elapsed().ok()
+fn heartbeat_file_exists() -> bool {
+    heartbeat_file_path().exists()
 }
 
 /// Check if Ctrl+Shift+F12 is currently held down.
@@ -133,6 +98,10 @@ async fn set_passthrough(w: tauri::WebviewWindow, enabled: bool) -> Result<bool,
 // ── Main ──────────────────────────────────────────────────────────
 
 fn main() {
+    // Save foreground window BEFORE tauri creates the halo window.
+    // Without this, the terminal loses focus every time halo starts.
+    let saved_hwnd = unsafe { GetForegroundWindow() };
+
     let state = Arc::new(Mutex::new(HaloState::Idle));
     let state_clone = state.clone();
 
@@ -164,6 +133,14 @@ fn main() {
                 let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(x, y)));
             }
 
+            // Restore focus to the terminal — halo's window steals it on creation
+            if saved_hwnd != 0 {
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+                    unsafe { SetForegroundWindow(saved_hwnd); }
+                });
+            }
+
             let win = window.clone();
             let st = state_clone;
 
@@ -176,6 +153,8 @@ fn main() {
                 let mut think_hold_until: Option<std::time::Instant> = None;
                 let mut saw_non_executing = true;
                 let mut ticks: u64 = 0;
+                let mut claude_was_alive = heartbeat_file_exists();
+                let mut claude_exited = false;
 
                 // Hotkey: debounced with cooldown to prevent rapid-fire
                 // ~2s cooldown = 13 ticks × 150ms
@@ -197,16 +176,20 @@ fn main() {
                     // ── Read hook state ──────────────────────────
                     let raw_state = read_hook_state().unwrap_or(HaloState::Idle);
 
-                    // ── Heartbeat check (every ~1.5s) ─────────────
+                    // ── Heartbeat-signal check (every ~1.5s) ──────
+                    // Claude Code is gone when the heartbeat file disappears.
+                    // The Stop hook deletes it as the last step before exiting.
+                    // No timeout guessing — the signal is definitive.
                     if ticks % 10 == 0 {
-                        if let Some(age) = read_heartbeat_age() {
-                            if age.as_secs() >= 6 {
-                                // Heartbeat stale → Claude Code is gone
-                                let _ = win.close();
-                                break;
-                            }
+                        let hb_exists = heartbeat_file_exists();
+                        if claude_was_alive && !hb_exists {
+                            // File was there, now gone → Claude said goodbye.
+                            claude_exited = true;
                         }
-                        // No heartbeat file = manual launch, don't auto-close
+                        if hb_exists {
+                            // Still alive — reset any false signal
+                            claude_was_alive = true;
+                        }
                     }
 
                     let mut new_state = if matches!(raw_state, HaloState::Completed) && completed_consumed {
@@ -215,15 +198,23 @@ fn main() {
                         raw_state
                     };
 
+                    // Reset completed_consumed when user starts a new interaction.
+                    // Tool-free chats (including /compact) never enter the
+                    // Executing/InputNeeded branch that normally clears this flag,
+                    // so without this reset the next Completed would be skipped.
+                    if !matches!(new_state, HaloState::Idle | HaloState::Completed) && completed_consumed {
+                        completed_consumed = false;
+                    }
+
                     // ── Missed-completed injection ─────────────────
                     // idle_prompt notification can overwrite "completed" in the
                     // state file before our 150ms poll catches it, especially in
-                    // tool-free chats.  If we were showing thinking/executing and
-                    // raw_state is now idle, inject Completed.
+                    // tool-free chats and after compaction.  If we were showing any
+                    // active state and raw_state is now idle/completed, inject Completed.
                     if completed_since.is_none() && !completed_consumed {
                         match (displayed, raw_state) {
-                            (Some(HaloState::Thinking | HaloState::Executing), HaloState::Idle)
-                            | (Some(HaloState::Thinking | HaloState::Executing), HaloState::Completed) => {
+                            (Some(HaloState::Thinking | HaloState::Executing | HaloState::Compacting), HaloState::Idle)
+                            | (Some(HaloState::Thinking | HaloState::Executing | HaloState::Compacting), HaloState::Completed) => {
                                 new_state = HaloState::Completed;
                             }
                             _ => {}
@@ -248,7 +239,9 @@ fn main() {
                     }
 
                     if let Some(deadline) = think_hold_until {
-                        if std::time::Instant::now() < deadline {
+                        if std::time::Instant::now() < deadline
+                            && !matches!(new_state, HaloState::Completed)
+                        {
                             new_state = HaloState::Thinking;
                         } else {
                             think_hold_until = None;
@@ -272,8 +265,11 @@ fn main() {
                     }
 
                     // Executing minimum hold (1.5s)
+                    // Completed bypass: fast tool calls (<1.5s) still need to show green
                     if let Some(t) = exec_since {
-                        if t.elapsed().as_millis() < 1500 { continue; }
+                        if t.elapsed().as_millis() < 1500 && !matches!(new_state, HaloState::Completed) {
+                            continue;
+                        }
                         exec_since = None;
                     }
 
@@ -305,14 +301,27 @@ fn main() {
                             }
                         }
                         let elapsed = completed_since.unwrap().elapsed();
-                        if elapsed.as_secs() >= 3 && is_user_glancing_at_claude() {
+                        if elapsed.as_secs() >= 3 {
                             completed_consumed = true;
                             completed_since = None;
+                            if claude_exited {
+                                // Green shown for 3s, Claude is gone — exit cleanly
+                                let _ = win.close();
+                                break;
+                            }
                             let _ = win.emit("state-changed", HaloState::Idle.to_str());
                             *st.lock().await = HaloState::Idle;
                             displayed = Some(HaloState::Idle);
                         }
                         continue;
+                    }
+
+                    // Claude exited while we weren't showing completed
+                    // (e.g. idle_prompt overwrote the completed signal).
+                    // Exit cleanly — no green to show.
+                    if claude_exited {
+                        let _ = win.close();
+                        break;
                     }
 
                     // Thinking / Idle
