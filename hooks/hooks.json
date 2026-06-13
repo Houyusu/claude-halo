@@ -14,10 +14,6 @@
           },
           {
             "type": "command",
-            "command": "powershell -Command \"(Get-Process claude -ErrorAction SilentlyContinue | Select-Object -First 1).Id | Out-File -Encoding ascii (Join-Path $env:TEMP 'claude-halo-cc-pid.txt')\""
-          },
-          {
-            "type": "command",
             "command": "powershell -Command \"Start-Process '${CLAUDE_PLUGIN_ROOT}/bin/claude-halo.exe'\""
           }
         ]

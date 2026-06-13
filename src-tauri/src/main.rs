@@ -19,10 +19,31 @@ extern "system" {
     fn OpenProcess(dwDesiredAccess: u32, bInheritHandle: i32, dwProcessId: u32) -> isize;
     fn CloseHandle(hObject: isize) -> i32;
     fn WaitForSingleObject(hHandle: isize, dwMilliseconds: u32) -> u32;
+    // Toolhelp32 — enumerate running processes by name
+    fn CreateToolhelp32Snapshot(dwFlags: u32, th32ProcessID: u32) -> isize;
+    fn Process32FirstW(hSnapshot: isize, lppe: *mut PROCESSENTRY32W) -> i32;
+    fn Process32NextW(hSnapshot: isize, lppe: *mut PROCESSENTRY32W) -> i32;
 }
 
 const PROCESS_SYNCHRONIZE: u32 = 0x00100000;
 const WAIT_TIMEOUT: u32 = 0x00000102;
+const TH32CS_SNAPPROCESS: u32 = 0x00000002;
+const INVALID_HANDLE_VALUE: isize = -1;
+
+#[repr(C)]
+#[allow(non_snake_case)]
+struct PROCESSENTRY32W {
+    dwSize: u32,
+    cntUsage: u32,
+    th32ProcessID: u32,
+    th32DefaultHeapID: usize,
+    th32ModuleID: u32,
+    cntThreads: u32,
+    th32ParentProcessID: u32,
+    pcPriClassBase: i32,
+    dwFlags: u32,
+    szExeFile: [u16; 260],
+}
 
 // Virtual key codes
 const VK_CONTROL: i32 = 0x11;
@@ -68,9 +89,59 @@ fn read_hook_state() -> Option<HaloState> {
     })
 }
 
-/// Read the Claude Code PID written by the SessionStart hook.
-/// Returns None if the file doesn't exist or is malformed.
-fn read_claude_pid() -> Option<u32> {
+/// Find the PID of a running claude.exe process using Toolhelp32.
+/// Because we are launched by Claude Code, there is always at least one
+/// claude.exe running when halo starts. No hook or file I/O needed.
+fn find_claude_pid() -> Option<u32> {
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snapshot == 0 || snapshot == INVALID_HANDLE_VALUE {
+            return None;
+        }
+
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            cntUsage: 0, th32ProcessID: 0, th32DefaultHeapID: 0,
+            th32ModuleID: 0, cntThreads: 0, th32ParentProcessID: 0,
+            pcPriClassBase: 0, dwFlags: 0, szExeFile: [0u16; 260],
+        };
+
+        if Process32FirstW(snapshot, &mut entry) == 0 {
+            CloseHandle(snapshot);
+            return None;
+        }
+
+        let target: Vec<u16> = "claude.exe\0".encode_utf16().collect();
+        loop {
+            // Compare szExeFile (UTF-16LE, case-insensitive)
+            let mut matches = true;
+            for (i, &c) in target.iter().enumerate() {
+                let ec = entry.szExeFile[i];
+                // Case-insensitive ASCII comparison for Latin letters
+                let ec_lower = if (b'A'..=b'Z').contains(&(ec as u8)) { ec | 0x0020 } else { ec };
+                let c_lower = if (b'A'..=b'Z').contains(&(c as u8)) { c | 0x0020 } else { c };
+                if ec_lower != c_lower as u16 { matches = false; break; }
+                if c == 0 { break; }
+            }
+            if matches {
+                let pid = entry.th32ProcessID;
+                CloseHandle(snapshot);
+                return Some(pid);
+            }
+            if Process32NextW(snapshot, &mut entry) == 0 {
+                break;
+            }
+        }
+
+        CloseHandle(snapshot);
+    }
+
+    // Fallback: try reading PID file (written by SessionStart hook pre-v1.0.5)
+    read_cc_pid_file()
+}
+
+/// Legacy fallback: read PID from file for backward compatibility.
+fn read_cc_pid_file() -> Option<u32> {
     let path = std::env::var("TEMP")
         .map(|d| PathBuf::from(d).join("claude-halo-cc-pid.txt"))
         .unwrap_or_else(|_| PathBuf::from("C:\\Windows\\Temp\\claude-halo-cc-pid.txt"));
@@ -176,9 +247,8 @@ fn main() {
                 let mut completed_consumed = false;
                 let mut think_hold_until: Option<std::time::Instant> = None;
                 let mut saw_non_executing = true;
-                // Process liveness check — detect Claude Code exit without
-                // relying on hook execution. SessionStart writes Claude's PID;
-                // halo checks every ~15 ticks (~2.25 s).
+                // Process liveness check: find claude.exe via Toolhelp32
+                // enumeration and poll its liveness. No hook or file needed.
                 let mut alive_check_ticks: u32 = 0; // check on first tick
 
                 // Hotkey: debounced with cooldown to prevent rapid-fire
@@ -201,15 +271,18 @@ fn main() {
                     let raw_state = read_hook_state().unwrap_or(HaloState::Idle);
 
                     // ── Process liveness check (every ~2.25 s) ──
-                    // Detect Claude Code exit by checking whether the
-                    // claude.exe PID (written by SessionStart) is still alive.
-                    // This does NOT rely on hooks firing during shutdown.
+                    // Halo enumerates processes to find claude.exe
+                    // (Toolhelp32). No hook execution needed.
                     if alive_check_ticks == 0 {
-                        if let Some(pid) = read_claude_pid() {
+                        if let Some(pid) = find_claude_pid() {
                             if !is_process_alive(pid) {
                                 let _ = win.close();
                                 break;
                             }
+                        } else {
+                            // No claude.exe running at all — exit
+                            let _ = win.close();
+                            break;
                         }
                         alive_check_ticks = 15;
                     }
