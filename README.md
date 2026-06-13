@@ -4,11 +4,6 @@
 </h1>
 
 <p align="center">
-  <strong>桌面光环指示器</strong> — 屏幕右下角的彩色光环，实时反映 Claude Code 运行状态。
-  <br>余光即可感知，无需切换窗口。
-</p>
-
-<p align="center">
   <a href="https://houyusu.github.io/claude-halo/"><strong>🎬 在线演示 →</strong></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/Houyusu/claude-halo"><strong>GitHub →</strong></a>
@@ -29,31 +24,31 @@
 
 完整动画效果请访问 **[在线演示](https://houyusu.github.io/claude-halo/)**。
 
-<table>
+<table width="100%">
 <tr>
-  <td align="center" width="110">
+  <td align="center" width="16%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/idle.svg" width="48" height="48" alt="idle"/><br>
     <code style="color:#aaaaaa">#aaaaaa</code><br><b>待命</b><br><sub>等待你的输入</sub>
   </td>
-  <td align="center" width="110">
+  <td align="center" width="17%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/thinking.svg" width="48" height="48" alt="thinking"/><br>
     <code style="color:#ff8830">#ff8830</code><br><b>思考</b><br><sub>Claude 正在推理</sub>
   </td>
-  <td align="center" width="110">
+  <td align="center" width="17%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/executing.svg" width="48" height="48" alt="executing"/><br>
     <code style="color:#3399ff">#3399ff</code><br><b>执行</b><br><sub>正在调用工具</sub>
   </td>
 </tr>
 <tr>
-  <td align="center" width="110">
+  <td align="center" width="16%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/input_needed.svg" width="48" height="48" alt="input_needed"/><br>
     <code style="color:#ee3333">#ee3333</code><br><b>等待输入</b><br><sub>需要你的响应</sub>
   </td>
-  <td align="center" width="110">
+  <td align="center" width="17%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/completed.svg" width="48" height="48" alt="completed"/><br>
     <code style="color:#33cc55">#33cc55</code><br><b>完成</b><br><sub>任务执行完毕</sub>
   </td>
-  <td align="center" width="110">
+  <td align="center" width="17%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/compacting.svg" width="48" height="48" alt="compacting"/><br>
     <code style="color:#9944ff">#9944ff</code><br><b>压缩</b><br><sub>正在整理上下文</sub>
   </td>
