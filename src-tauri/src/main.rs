@@ -262,6 +262,23 @@ fn main() {
                         exec_since = None;
                     }
 
+                    // Completed hold: once we start showing completed, lock it until
+                    // the 3s display condition is met — even if idle_prompt
+                    // notification overwrites the state file back to "idle".
+                    if completed_since.is_some() {
+                        match new_state {
+                            HaloState::Thinking | HaloState::Executing | HaloState::InputNeeded => {
+                                // New user interaction — release hold
+                                completed_since = None;
+                                completed_consumed = false;
+                            }
+                            _ => {
+                                // Keep showing completed
+                                new_state = HaloState::Completed;
+                            }
+                        }
+                    }
+
                     // Completed
                     if matches!(new_state, HaloState::Completed) {
                         if completed_since.is_none() {
