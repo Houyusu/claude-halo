@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Halo — 桌面光环指示器</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#09090b;
+    --surface:rgba(255,255,255,0.03);
+    --border:rgba(255,255,255,0.06);
+    --text:#b0b0b0;
+    --text-dim:#505050;
+    --text-bright:#e8e8e8;
+  }
+
+  body{
+    background:var(--bg);color:var(--text);
+    font:400 15px/1.7 "Noto Sans SC","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;
+    min-height:100vh;overflow-x:hidden;
+    background-image:
+      radial-gradient(ellipse at 50% 35%, rgba(120,120,120,0.04) 0%, transparent 70%),
+      radial-gradient(ellipse at 50% 100%, rgba(120,120,120,0.02) 0%, transparent 50%);
+  }
+
+  /* ── Hero ─────────────────────────────────────────────────── */
+  .hero{
+    text-align:center;padding:72px 24px 36px;
+    display:flex;flex-direction:column;align-items:center;gap:12px;
+  }
+  .hero h1{
+    font-size:48px;font-weight:700;letter-spacing:4px;color:var(--text-bright);
+    background:linear-gradient(135deg, #ccc 0%, #888 40%, #aaa 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  .hero .tagline{
+    font-size:17px;color:var(--text-dim);font-weight:300;letter-spacing:1px;
+  }
+  .hero .meta{
+    margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
+  }
+  .hero .meta span{
+    font-size:11px;font-weight:500;padding:3px 14px;border-radius:20px;
+    background:var(--surface);border:1px solid var(--border);color:#707070;
+    letter-spacing:1px;text-transform:uppercase;
+  }
+
+  /* ── Canvas ring ──────────────────────────────────────────── */
+  .ring-stage{
+    position:relative;width:300px;height:300px;
+    margin:0 auto;
+  }
+  .ring-stage::after{
+    content:"";position:absolute;inset:0;
+    border-radius:50%;
+    box-shadow:0 0 140px rgba(128,128,128,0.04), inset 0 0 60px rgba(128,128,128,0.02);
+    pointer-events:none;
+  }
+  canvas{display:block;width:100%;height:100%}
+
+  /* ── State label ──────────────────────────────────────────── */
+  .state-label{
+    text-align:center;font-size:21px;font-weight:600;
+    margin:8px 0 4px;transition:color .4s;
+  }
+  .state-label.idle{color:#aaaaaa}
+  .state-label.thinking{color:#ff8830}
+  .state-label.executing{color:#3399ff}
+  .state-label.input_needed{color:#ee3333}
+  .state-label.completed{color:#33cc55}
+  .state-label.compacting{color:#9944ff}
+
+  .state-desc{
+    text-align:center;font-size:13px;color:var(--text-dim);min-height:20px;
+    transition:color .4s;
+  }
+
+  /* ── Buttons ──────────────────────────────────────────────── */
+  .picker{
+    display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:20px 0 48px;
+    padding:0 16px;
+  }
+  .picker button{
+    padding:8px 22px;border:1px solid rgba(255,255,255,0.10);border-radius:24px;
+    background:transparent;color:#777;font-size:13px;font-weight:500;
+    cursor:pointer;transition:all .3s;font-family:inherit;letter-spacing:0.5px;
+    backdrop-filter:blur(4px);
+  }
+  .picker button:hover{border-color:rgba(255,255,255,0.25);color:#bbb;transform:translateY(-1px)}
+  .picker button[data-state="idle"].active,.picker button[data-state="idle"]:hover{border-color:#aaaaaa;color:#aaaaaa}
+  .picker button[data-state="thinking"].active,.picker button[data-state="thinking"]:hover{border-color:#ff8830;color:#ff8830}
+  .picker button[data-state="executing"].active,.picker button[data-state="executing"]:hover{border-color:#3399ff;color:#3399ff}
+  .picker button[data-state="input_needed"].active,.picker button[data-state="input_needed"]:hover{border-color:#ee3333;color:#ee3333}
+  .picker button[data-state="completed"].active,.picker button[data-state="completed"]:hover{border-color:#33cc55;color:#33cc55}
+  .picker button[data-state="compacting"].active,.picker button[data-state="compacting"]:hover{border-color:#9944ff;color:#9944ff}
+
+  /* ── Feature grid ─────────────────────────────────────────── */
+  .section-title{
+    color:var(--text-bright);font-size:22px;font-weight:600;text-align:center;
+    margin:56px 0 28px;letter-spacing:2px;
+  }
+  .features{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:16px;width:100%;max-width:920px;padding:0 24px;margin-bottom:48px;
+  }
+  .feature-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:22px 24px;transition:border-color .3s;
+  }
+  .feature-card:hover{border-color:rgba(255,255,255,0.14)}
+  .feature-card h3{
+    font-size:15px;font-weight:600;color:var(--text-bright);margin-bottom:6px;
+  }
+  .feature-card p{font-size:13px;color:var(--text-dim);line-height:1.7}
+
+  /* ── Install block ────────────────────────────────────────── */
+  .install-block{
+    width:100%;max-width:640px;padding:0 24px;margin-bottom:48px;
+  }
+  .install-block pre{
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:18px 24px;overflow-x:auto;font-size:13px;line-height:1.8;
+    color:#999;font-family:"Cascadia Code","Fira Code","JetBrains Mono",monospace;
+  }
+  .install-block pre .prompt{color:var(--text-dim)}
+  .install-block pre .cmd{color:#ccc}
+
+  .cta-row{
+    display:flex;gap:12px;justify-content:center;margin:20px 0 48px;
+  }
+  .cta-row a{
+    display:inline-block;padding:10px 28px;border-radius:24px;
+    font-size:14px;font-weight:500;text-decoration:none;letter-spacing:1px;
+    transition:all .3s;
+  }
+  .cta-primary{
+    background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);
+    color:#ddd;
+  }
+  .cta-primary:hover{background:rgba(255,255,255,0.16);border-color:rgba(255,255,255,0.30)}
+  .cta-secondary{
+    border:1px solid rgba(255,255,255,0.08);color:#777;
+  }
+  .cta-secondary:hover{border-color:rgba(255,255,255,0.18);color:#aaa}
+
+  /* ── Footer ───────────────────────────────────────────────── */
+  footer{
+    text-align:center;padding:32px 24px 48px;color:var(--text-dim);font-size:12px;
+  }
+  footer a{color:inherit;text-decoration:none}
+  footer a:hover{color:#999}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <h1>Claude Halo</h1>
+  <p class="tagline">陪伴每一次思考</p>
+  <div class="meta">
+    <span>Windows</span>
+    <span>Claude Code Plugin</span>
+    <span>MIT</span>
+  </div>
+</section>
+
+<div class="ring-stage">
+  <canvas id="halo"></canvas>
+</div>
+
+<div class="state-label idle" id="stateLabel">待命 Idle</div>
+<div class="state-desc" id="stateDesc">等待输入，低存在感灰白两段慢速旋转</div>
+
+<div class="picker" id="picker">
+  <button class="active" data-state="idle">待命</button>
+  <button data-state="thinking">思考</button>
+  <button data-state="executing">执行</button>
+  <button data-state="input_needed">等待</button>
+  <button data-state="completed">完成</button>
+  <button data-state="compacting">压缩</button>
+</div>
+
+<h2 class="section-title">为什么需要光环？</h2>
+
+<div class="features">
+  <div class="feature-card">
+    <h3>👁️ 无干扰感知</h3>
+    <p>屏幕右下角 100×100 像素的彩色光环，余光即可判断 Claude Code 状态，无需切换窗口。</p>
+  </div>
+  <div class="feature-card">
+    <h3>🎨 六状态呈现</h3>
+    <p>六种颜色、六种动画节奏，分别对应空闲、思考、执行、等待输入、完成、压缩，一目了然。</p>
+  </div>
+  <div class="feature-card">
+    <h3>🖱️ 点击穿透</h3>
+    <p>默认鼠标事件穿透，不干扰工作。Ctrl+Shift+F12 随时切换，或 15 秒自动恢复。</p>
+  </div>
+  <div class="feature-card">
+    <h3>🔌 即装即用</h3>
+    <p>一行命令安装为 Claude Code 插件，自动跟随 Claude Code 启动和退出。</p>
+  </div>
+  <div class="feature-card">
+    <h3>⚡ 零依赖可靠</h3>
+    <p>无 Node.js 依赖。退出检测使用 Windows 原生 Toolhelp32 API，不依赖 hook 执行。</p>
+  </div>
+  <div class="feature-card">
+    <h3>🎭 平滑动画</h3>
+    <p>状态切换时环形态平滑过渡（420ms morph），进场/退场带缓动动画，视觉柔和。</p>
+  </div>
+</div>
+
+<h2 class="section-title">安装</h2>
+
+<div class="install-block">
+  <pre><span class="prompt"># 添加市场</span>
+<span class="cmd">/plugin marketplace add</span> Houyusu/claude-halo
+
+<span class="prompt"># 安装插件</span>
+<span class="cmd">/plugin install</span> claude-halo@claude-halo</pre>
+</div>
+
+<div class="cta-row">
+  <a class="cta-primary" href="https://github.com/Houyusu/claude-halo">GitHub →</a>
+  <a class="cta-secondary" href="https://github.com/Houyusu/claude-halo#readme">README →</a>
+</div>
+
+<footer>
+  Made with care · <a href="https://github.com/Houyusu/claude-halo">Houyusu/claude-halo</a>
+</footer>
+
+<script>
+(function () { "use strict";
+
+function hexRgb(h) {
+  var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
+  return m ? [parseInt(m[1],16),parseInt(m[2],16),parseInt(m[3],16)]:[255,255,255];
+}
+function lerp(a,b,t){return a+(b-a)*t}
+function lerpRgb(a,b,t){return[Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1],b[1],t)),Math.round(lerp(a[2],b[2],t))]}
+function rgba(r,g,b,a){return"rgba("+r+","+g+","+b+","+a+")"}
+
+var CONFIGS = {
+  idle:{color:"#aaaaaa",halo:"#cccccc",period:6.0,dashes:[60,30],ms:0,md:0,amin:0.30,amax:0.42,br:0,rp:0,rpperiod:0,label:"待命 Idle",desc:"等待输入，低存在感灰白两段慢速旋转"},
+  thinking:{color:"#ff8830",halo:"#ffdbb8",period:2.4,dashes:[70,35,45,30,25,20],ms:0.6,md:0.4,amin:0.45,amax:0.90,br:5.2,rp:0,rpperiod:0,label:"思考 Thinking",desc:"正在推理，琥珀色六段呼吸辉光"},
+  executing:{color:"#3399ff",halo:"#bbddff",period:1.3,dashes:[50,25,20,20,35,25,25,22],ms:1.2,md:0.28,amin:0.60,amax:0.90,br:0,rp:0,rpperiod:0,label:"执行 Executing",desc:"执行工具调用，蓝色八段高速旋转"},
+  input_needed:{color:"#ee3333",halo:"#ffcccc",period:2.8,dashes:[80,50,30,25],ms:1.8,md:0.5,amin:0.52,amax:0.94,br:2.0,rp:0,rpperiod:0,label:"等待输入 Input Needed",desc:"需要用户响应，红色四段呼吸提醒"},
+  completed:{color:"#33cc55",halo:"#bbffcc",period:5.0,dashes:[70,35,45,30,25,20],ms:0.5,md:0.3,amin:0.38,amax:0.84,br:6.0,rp:0,rpperiod:0,label:"已完成 Completed",desc:"任务完成，绿色六段柔和呼吸"},
+  compacting:{color:"#9944ff",halo:"#ddccff",period:2.1,dashes:[35,20,35,20,35,20],ms:0.4,md:0.25,amin:0.38,amax:0.80,br:4.0,rp:0.12,rpperiod:1.6,label:"压缩 Compacting",desc:"上下文压缩，紫色六段半径脉冲"},
+};
+
+var MORPH_DURATION = 420;
+var ENTRY_DURATION = 1400;
+
+var canvas = document.getElementById("halo");
+var ctx = canvas.getContext("2d");
+var time=0, lastT=null, rafId=null;
+
+var targetState = "idle";
+var currentState = "idle", currentCfg = CONFIGS.idle;
+var morphFrom=null, morphStart=0, morphActive=false;
+
+var lifecycle="entering", entryStart=null;
+var pulseSettleStart=0, PULSE_SETTLE_DELAY=0.20, PULSE_RAMP_DURATION=0.50;
+
+function resize(){
+  var dpr=window.devicePixelRatio||1;
+  var w=canvas.clientWidth, h=canvas.clientHeight;
+  if (canvas.width===w*dpr && canvas.height===h*dpr) return;
+  canvas.width=w*dpr;canvas.height=h*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+resize();window.addEventListener("resize",resize);
+new ResizeObserver(resize).observe(canvas);
+
+function morphDashArrays(a,b,t){
+  var nA=a.length/2, nB=b.length/2;
+  var nFloat=lerp(nA,nB,t), nDraw=Math.max(1,Math.ceil(nFloat));
+  var result=[];
+  var totalA=a.reduce(function(s,v){return s+v},0), totalB=b.reduce(function(s,v){return s+v},0);
+  var totalTarget=lerp(totalA,totalB,t);
+  for(var i=0;i<nDraw;i++){
+    var frac=i/nDraw;
+    var ia=Math.floor(frac*nA)%nA, ib=Math.floor(frac*nB)%nB;
+    var dl=lerp(a[ia*2],b[ib*2],t), gl=lerp(a[ia*2+1],b[ib*2+1],t);
+    var bs=nDraw<=nFloat?1:1-(nDraw-nFloat);bs=Math.max(0.02,bs);
+    result.push(dl*bs,gl*bs);
+  }
+  var cur=result.reduce(function(s,v){return s+v},0);
+  if(cur>0){var sc=totalTarget/cur;for(var j=0;j<result.length;j++)result[j]*=sc}
+  return result;
+}
+
+function morphConfig(a,b,t){
+  return {
+    color:lerpRgb(hexRgb(a.color),hexRgb(b.color),t),
+    halo:lerpRgb(hexRgb(a.halo),hexRgb(b.halo),t),
+    period:lerp(a.period,b.period,t), ms:lerp(a.ms,b.ms,t), md:lerp(a.md,b.md,t),
+    amin:lerp(a.amin,b.amin,t), amax:lerp(a.amax,b.amax,t),
+    br:lerp(a.br,b.br,t), rp:lerp(a.rp,b.rp,t), rpperiod:lerp(a.rpperiod,b.rpperiod,t),
+    dashes:morphDashArrays(a.dashes,b.dashes,t),
+  };
+}
+
+function drawRing(cx,cy,R,cfg,alphaMul,timeOff){
+  if(alphaMul<=0.001)return;
+  var t=time+(timeOff||0);
+  var mainRgb=Array.isArray(cfg.color)?cfg.color:hexRgb(cfg.color);
+  var haloRgb=Array.isArray(cfg.halo)?cfg.halo:hexRgb(cfg.halo);
+
+  var breathe=0;
+  if(cfg.br>0){var ph=(t%cfg.br)/cfg.br;breathe=Math.max(0,Math.sin(ph*Math.PI*2))}
+  var alpha=(cfg.br>0?cfg.amin+(cfg.amax-cfg.amin)*breathe:cfg.amax)*alphaMul;
+
+  var offset=((t/cfg.period)*Math.PI*2)%(Math.PI*2);
+  var rawSum=cfg.dashes.reduce(function(a,b){return a+b},0);
+
+  var haloLw=Math.max(R*0.28,1.5), haloAngExt=haloLw/R, minGap=haloAngExt*1.20;
+
+  var rawAngles=[];
+  for(var i=0;i<cfg.dashes.length;i++){
+    var morph=Math.sin(t*cfg.ms+i*2.1);
+    var ang=(cfg.dashes[i]/rawSum)*Math.PI*2;
+    if(i%2===0){ang*=1+cfg.md*morph;ang=Math.max(0.02,ang)}
+    else{ang*=1-cfg.md*0.5*morph;ang=Math.max(minGap,ang)}
+    rawAngles.push(ang);
+  }
+  var dashTotal=0,gapTotal=0;
+  for(var j=0;j<rawAngles.length;j++){if(j%2===0)dashTotal+=rawAngles[j];else gapTotal+=rawAngles[j]}
+  var dashTarget=Math.PI*2-gapTotal, dashScale=dashTotal>0.001?dashTarget/dashTotal:1;
+
+  var cumul=0;
+  for(var k=0;k<rawAngles.length;k++){
+    var ang=k%2===0?rawAngles[k]*dashScale:rawAngles[k];
+    var a0=cumul-offset, a1=a0+ang;cumul+=ang;
+    if(k%2===1)continue;
+
+    ctx.strokeStyle=rgba(haloRgb[0],haloRgb[1],haloRgb[2],alpha*0.55);
+    ctx.lineWidth=haloLw;ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,a0,a1,false);ctx.stroke();
+
+    var mid=lerpRgb(haloRgb,mainRgb,0.5);
+    ctx.strokeStyle=rgba(mid[0],mid[1],mid[2],alpha*0.85);
+    ctx.lineWidth=Math.max(R*0.16,1);ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,a0,a1,false);ctx.stroke();
+
+    ctx.strokeStyle=rgba(mainRgb[0],mainRgb[1],mainRgb[2],alpha);
+    ctx.lineWidth=Math.max(R*0.10,1);ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,a0,a1,false);ctx.stroke();
+  }
+}
+
+function drawGlowBridge(cx,cy,R,a,b,t){
+  var ga=Math.sin(t*Math.PI)*0.32;if(ga<0.005)return;
+  var midRgb=lerpRgb(hexRgb(a.color),hexRgb(b.color),t);
+  ctx.strokeStyle=rgba(midRgb[0],midRgb[1],midRgb[2],ga*0.22);
+  ctx.lineWidth=Math.max(R*0.50,3.5);ctx.lineCap="round";
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2,false);ctx.stroke();
+  ctx.strokeStyle=rgba(midRgb[0],midRgb[1],midRgb[2],ga*0.40);
+  ctx.lineWidth=Math.max(R*0.22,1.8);ctx.lineCap="round";
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2,false);ctx.stroke();
+}
+
+function radiusPulseFactor(cfg,tNow){
+  if(!cfg.rp||cfg.rpperiod<=0)return 1;
+  if(pulseSettleStart<=0)return 1;
+  var elapsed=tNow-pulseSettleStart;if(elapsed<0)return 1;
+  var ramp=Math.min(1,Math.max(0,elapsed-PULSE_SETTLE_DELAY)/PULSE_RAMP_DURATION);
+  var erp=cfg.rp*(1-Math.pow(1-ramp,3));if(erp<=0.001)return 1;
+  return 1+erp*Math.sin((tNow%cfg.rpperiod)/cfg.rpperiod*Math.PI*2);
+}
+
+function frame(ts){
+  rafId=null;
+  if(!lastT)lastT=ts;
+  var dt=(ts-lastT)/1000;
+  if(dt<=0)dt=0.016;else if(dt>0.1)dt=0.1;
+  lastT=ts;time+=dt;
+
+  var w=canvas.clientWidth, h=canvas.clientHeight;
+  if (w===0 || h===0) { rafId=requestAnimationFrame(frame); return; }
+  var cx=Math.floor(w/2), cy=Math.floor(h/2);
+  var baseR=Math.min(w,h)*0.38;
+
+  // Entry animation
+  var entryScale=1,entryAlpha=1;
+  if(lifecycle==="entering"){
+    if(!entryStart)entryStart=ts;
+    var raw=Math.min((ts-entryStart)/ENTRY_DURATION,1);
+    var c1=1.70158;var eb=1+(c1+1)*Math.pow(raw-1,3)+c1*Math.pow(raw-1,2);
+    entryScale=0.2+0.8*eb;entryAlpha=1-Math.pow(1-raw,3);
+    if(raw>=1)lifecycle="active";
+  }
+
+  var ringScale=entryScale, ringAlpha=entryAlpha;
+
+  var activeCfg=morphActive?morphConfig(morphFrom,CONFIGS[targetState],Math.min((ts-morphStart)/MORPH_DURATION,1)):currentCfg;
+  var rpF=radiusPulseFactor(activeCfg,time);
+  var RR=baseR*ringScale*rpF;
+
+  ctx.clearRect(0,0,w,h);
+
+  if(lifecycle==="active"&&targetState!==currentState&&!morphActive){
+    pulseSettleStart=0;
+    morphFrom=currentCfg;morphStart=ts;morphActive=true;
+  }
+
+  if(lifecycle!=="active"){
+    drawRing(cx,cy,RR,currentCfg,ringAlpha,0);
+  }else if(morphActive){
+    var elapsed=ts-morphStart, rawM=Math.min(elapsed/MORPH_DURATION,1);
+    var tE=rawM<0.5?2*rawM*rawM:1-Math.pow(-2*rawM+2,2)/2;
+    var interp=morphConfig(morphFrom,CONFIGS[targetState],tE);
+    drawRing(cx,cy,RR,interp,ringAlpha,0);
+    drawGlowBridge(cx,cy,RR,morphFrom,CONFIGS[targetState],tE);
+    if(rawM>=1){
+      morphActive=false;currentState=targetState;currentCfg=CONFIGS[targetState];morphFrom=null;
+      if(CONFIGS[targetState].rp>0)pulseSettleStart=time+0.06;
+    }
+  }else{
+    drawRing(cx,cy,RR,currentCfg,ringAlpha,0);
+  }
+
+  rafId=requestAnimationFrame(frame);
+}
+
+function setState(name){
+  if(targetState===name)return;
+  targetState=name;
+  document.querySelectorAll("#picker button").forEach(function(b){b.classList.toggle("active",b.dataset.state===name)});
+  var lb=document.getElementById("stateLabel");
+  lb.textContent=CONFIGS[name].label;
+  lb.className="state-label "+name;
+  document.getElementById("stateDesc").textContent=CONFIGS[name].desc;
+}
+
+rafId=requestAnimationFrame(frame);
+
+document.getElementById("picker").addEventListener("click",function(e){
+  var btn=e.target.closest("button");
+  if(!btn)return;
+  if(targetState===btn.dataset.state)return;
+  morphFrom=morphActive?morphConfig(morphFrom,CONFIGS[targetState],Math.min((performance.now()-morphStart)/MORPH_DURATION,1)):currentCfg;
+  morphStart=performance.now();morphActive=true;
+  pulseSettleStart=0;
+  setState(btn.dataset.state);
+});
+
+})();
+</script>
+</body>
+</html>
