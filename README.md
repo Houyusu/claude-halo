@@ -21,27 +21,27 @@
 <tr>
   <td align="center" width="16%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/idle.svg" width="48" height="48" alt="idle"/><br>
-    <code style="color:#aaaaaa">#aaaaaa</code><br><b>待命</b><br><sub>等待你的输入</sub>
+    <code style="color:#aaaaaa">#aaaaaa</code><br><b>待命</b>
   </td>
   <td align="center" width="16%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/thinking.svg" width="48" height="48" alt="thinking"/><br>
-    <code style="color:#ff8830">#ff8830</code><br><b>思考</b><br><sub>Claude 正在推理</sub>
+    <code style="color:#ff8830">#ff8830</code><br><b>思考</b>
   </td>
   <td align="center" width="17%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/executing.svg" width="48" height="48" alt="executing"/><br>
-    <code style="color:#3399ff">#3399ff</code><br><b>执行</b><br><sub>正在调用工具</sub>
+    <code style="color:#3399ff">#3399ff</code><br><b>执行</b>
   </td>
   <td align="center" width="17%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/input_needed.svg" width="48" height="48" alt="input_needed"/><br>
-    <code style="color:#ee3333">#ee3333</code><br><b>等待输入</b><br><sub>需要你的响应</sub>
+    <code style="color:#ee3333">#ee3333</code><br><b>等待输入</b>
   </td>
   <td align="center" width="17%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/completed.svg" width="48" height="48" alt="completed"/><br>
-    <code style="color:#33cc55">#33cc55</code><br><b>完成</b><br><sub>任务执行完毕</sub>
+    <code style="color:#33cc55">#33cc55</code><br><b>完成</b>
   </td>
   <td align="center" width="17%">
     <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/compacting.svg" width="48" height="48" alt="compacting"/><br>
-    <code style="color:#9944ff">#9944ff</code><br><b>压缩</b><br><sub>正在整理上下文</sub>
+    <code style="color:#9944ff">#9944ff</code><br><b>压缩</b>
   </td>
 </tr>
 </table>
