@@ -104,19 +104,6 @@
     color:var(--text-bright);font-size:22px;font-weight:600;text-align:center;
     margin:56px 0 28px;letter-spacing:2px;
   }
-  .features{
-    display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
-    gap:16px;width:100%;max-width:920px;padding:0 24px;margin-bottom:48px;
-  }
-  .feature-card{
-    background:var(--surface);border:1px solid var(--border);border-radius:14px;
-    padding:22px 24px;transition:border-color .3s;
-  }
-  .feature-card:hover{border-color:rgba(255,255,255,0.14)}
-  .feature-card h3{
-    font-size:15px;font-weight:600;color:var(--text-bright);margin-bottom:6px;
-  }
-  .feature-card p{font-size:13px;color:var(--text-dim);line-height:1.7}
 
   /* ── Install block ────────────────────────────────────────── */
   .install-block{
@@ -182,35 +169,6 @@
   <button data-state="input_needed">等待</button>
   <button data-state="completed">完成</button>
   <button data-state="compacting">压缩</button>
-</div>
-
-<h2 class="section-title">为什么需要光环？</h2>
-
-<div class="features">
-  <div class="feature-card">
-    <h3>👁️ 无干扰感知</h3>
-    <p>屏幕右下角 100×100 像素的彩色光环，余光即可判断 Claude Code 状态，无需切换窗口。</p>
-  </div>
-  <div class="feature-card">
-    <h3>🎨 六状态呈现</h3>
-    <p>六种颜色、六种动画节奏，分别对应空闲、思考、执行、等待输入、完成、压缩，一目了然。</p>
-  </div>
-  <div class="feature-card">
-    <h3>🖱️ 点击穿透</h3>
-    <p>默认鼠标事件穿透，不干扰工作。Ctrl+Shift+F12 随时切换，或 15 秒自动恢复。</p>
-  </div>
-  <div class="feature-card">
-    <h3>🔌 即装即用</h3>
-    <p>一行命令安装为 Claude Code 插件，自动跟随 Claude Code 启动和退出。</p>
-  </div>
-  <div class="feature-card">
-    <h3>⚡ 零依赖可靠</h3>
-    <p>无 Node.js 依赖。退出检测使用 Windows 原生 Toolhelp32 API，不依赖 hook 执行。</p>
-  </div>
-  <div class="feature-card">
-    <h3>🎭 平滑动画</h3>
-    <p>状态切换时环形态平滑过渡（420ms morph），进场/退场带缓动动画，视觉柔和。</p>
-  </div>
 </div>
 
 <h2 class="section-title">安装</h2>
