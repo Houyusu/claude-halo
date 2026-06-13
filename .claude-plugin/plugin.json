@@ -9,7 +9,5 @@
   "repository": "https://github.com/Houyusu/claude-halo",
   "license": "MIT",
   "keywords": ["halo", "visual", "status", "indicator", "desktop"],
-  "hooks": {
-    "source": "./hooks/hooks.json"
-  }
+  "hooks": "./hooks/hooks.json"
 }
