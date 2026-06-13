@@ -6,15 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -Command \"Get-Process claude-halo -ErrorAction SilentlyContinue | Stop-Process -Force\""
-          },
-          {
-            "type": "command",
             "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State idle"
           },
           {
             "type": "command",
-            "command": "powershell -Command \"Start-Process '${CLAUDE_PLUGIN_ROOT}/bin/claude-halo.exe'\""
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/launch-halo.ps1\""
           }
         ]
       }
