@@ -1,13 +1,6 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/halo-icon.svg" width="64" height="64" alt=""/><br>
   Claude Halo
 </h1>
-
-<p align="center">
-  <a href="https://houyusu.github.io/claude-halo/"><strong>🎬 在线演示 →</strong></a>
-  &nbsp;·&nbsp;
-  <a href="https://github.com/Houyusu/claude-halo"><strong>GitHub →</strong></a>
-</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows">
@@ -18,7 +11,7 @@
 
 ---
 
-## 📡 六种状态
+## 六种状态
 
 光环颜色和动画随 Claude Code 状态自动变化，每个状态有独特的视觉节奏。
 
@@ -57,7 +50,7 @@
 
 ---
 
-## 🔧 安装
+## 安装
 
 在 Claude Code 中输入：
 
