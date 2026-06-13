@@ -215,6 +215,21 @@ fn main() {
                         raw_state
                     };
 
+                    // ── Missed-completed injection ─────────────────
+                    // idle_prompt notification can overwrite "completed" in the
+                    // state file before our 150ms poll catches it, especially in
+                    // tool-free chats.  If we were showing thinking/executing and
+                    // raw_state is now idle, inject Completed.
+                    if completed_since.is_none() && !completed_consumed {
+                        match (displayed, raw_state) {
+                            (Some(HaloState::Thinking | HaloState::Executing), HaloState::Idle)
+                            | (Some(HaloState::Thinking | HaloState::Executing), HaloState::Completed) => {
+                                new_state = HaloState::Completed;
+                            }
+                            _ => {}
+                        }
+                    }
+
                     // Thinking hold (1200ms minimum amber)
                     if matches!(new_state, HaloState::Executing)
                         && saw_non_executing
