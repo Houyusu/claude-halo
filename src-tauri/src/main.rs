@@ -228,7 +228,9 @@ fn main() {
                 let mut completed_since: Option<std::time::Instant> = None;
                 let mut completed_consumed = false;
                 let mut hold_completed = false; // compaction or user-away: hold green
-                let mut focus_hwnd = saved_hwnd; // dynamically updated terminal handle
+                let mut hold_from_compaction = false; // compaction hold: no focus release
+                let mut focus_hwnd = saved_hwnd; // terminal handle for focus detection
+                let mut focus_captured = false;   // captured on first Thinking
                 let mut think_hold_until: Option<std::time::Instant> = None;
                 let mut saw_non_executing = true;
                 // Process liveness check: find claude.exe via Toolhelp32
@@ -261,15 +263,20 @@ fn main() {
                     }
                     alive_check_ticks -= 1;
 
-                    // Dynamically track the terminal window handle.
-                    // saved_hwnd (captured at startup) can be wrong if halo is
-                    // launched from a script rather than directly from the terminal.
-                    // Every time the user is actively interacting, update focus_hwnd
-                    // to the current foreground window — the most reliable indicator.
-                    if matches!(raw_state, HaloState::Thinking | HaloState::Executing | HaloState::InputNeeded) {
+                    // Capture terminal HWND on the first Thinking transition.
+                    // At the exact moment "thinking" fires, the user just hit
+                    // Enter in their terminal — GetForegroundWindow() is guaranteed
+                    // to be the terminal window.  We capture once and never update
+                    // again, because during long executions the user may switch away.
+                    // Reset if the captured handle becomes invalid (terminal restart).
+                    if focus_captured && unsafe { IsWindow(focus_hwnd) == 0 } {
+                        focus_captured = false;
+                    }
+                    if !focus_captured && matches!(raw_state, HaloState::Thinking) {
                         let fg = unsafe { GetForegroundWindow() };
                         if fg != 0 {
                             focus_hwnd = fg;
+                            focus_captured = true;
                         }
                     }
 
@@ -289,6 +296,9 @@ fn main() {
                     if !matches!(new_state, HaloState::Idle | HaloState::Completed) && hold_completed {
                         hold_completed = false;
                     }
+                    if !matches!(new_state, HaloState::Idle | HaloState::Completed) && hold_from_compaction {
+                        hold_from_compaction = false;
+                    }
 
                     // ── Missed-completed injection ─────────────────
                     // idle_prompt notification can overwrite "completed" in the
@@ -301,9 +311,13 @@ fn main() {
                             | (Some(HaloState::Thinking | HaloState::Executing | HaloState::Compacting), HaloState::Completed) => {
                                 new_state = HaloState::Completed;
                                 // Compaction can take a long time — the user may have
-                                // walked away.  Hold green until they return and type.
+                                // walked away.  Hold green until they send a new
+                                // message.  Focus return does NOT release this
+                                // hold because terminal restart makes focus
+                                // detection unreliable.
                                 if matches!(displayed, Some(HaloState::Compacting)) {
                                     hold_completed = true;
+                                    hold_from_compaction = true;
                                 }
                             }
                             _ => {}
@@ -382,6 +396,7 @@ fn main() {
                                 completed_since = None;
                                 completed_consumed = false;
                                 hold_completed = false;
+                                hold_from_compaction = false;
                             }
                             _ => {
                                 // Keep showing completed
@@ -413,7 +428,7 @@ fn main() {
                         if !hold_completed && !effectively_focused {
                             hold_completed = true;
                         }
-                        if hold_completed && effectively_focused {
+                        if hold_completed && effectively_focused && !hold_from_compaction {
                             // User returned — release hold and fade to idle
                             hold_completed = false;
                             completed_consumed = true;
