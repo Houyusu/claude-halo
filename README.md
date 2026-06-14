@@ -11,40 +11,24 @@
 
 ---
 
-## 六种状态
+## Claude Halo —— 给你的终端装一盏会思考的灯
 
-光环颜色和动画随 Claude Code 状态自动变化，每个状态有独特的视觉节奏。
+灵感来源于《底特律：变人》。还记得康纳额头那一圈流转的黄蓝色光环吗？仿生人思考时，光环律动；做出决定时，光环变色。我一直想要那种感觉——不是盯着冷冰冰的日志，而是在余光里就能感知到 Claude 此刻的"心绪"。
 
-完整动画效果请访问 **[在线演示](https://houyusu.github.io/claude-halo/)**
+Claude Halo 就是这样一个东西。它安静地待在屏幕右下角，不遮挡、不弹出、不打扰——鼠标能直接穿透它点到底下的窗口——但它的光环从不静止：
 
-<table>
-<tr>
-  <td align="center" width="120px">
-    <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/idle.svg" width="48" height="48" alt="idle"/><br>
-    <code style="color:#aaaaaa">#aaaaaa</code><br><b>待命</b><br><sub>等待你的输入</sub>
-  </td>
-  <td align="center" width="120px">
-    <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/thinking.svg" width="48" height="48" alt="thinking"/><br>
-    <code style="color:#ff8830">#ff8830</code><br><b>思考</b><br><sub>正在推理</sub>
-  </td>
-  <td align="center" width="120px">
-    <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/executing.svg" width="48" height="48" alt="executing"/><br>
-    <code style="color:#3399ff">#3399ff</code><br><b>执行</b><br><sub>正在调用工具</sub>
-  </td>
-  <td align="center" width="120px">
-    <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/input_needed.svg" width="48" height="48" alt="input_needed"/><br>
-    <code style="color:#ee3333">#ee3333</code><br><b>等待输入</b><br><sub>需要你的响应</sub>
-  </td>
-  <td align="center" width="120px">
-    <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/completed.svg" width="48" height="48" alt="completed"/><br>
-    <code style="color:#33cc55">#33cc55</code><br><b>完成</b><br><sub>任务执行完毕</sub>
-  </td>
-  <td align="center" width="120px">
-    <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/compacting.svg" width="48" height="48" alt="compacting"/><br>
-    <code style="color:#9944ff">#9944ff</code><br><b>压缩</b><br><sub>正在整理上下文</sub>
-  </td>
-</tr>
-</table>
+| 状态 | 颜色 | 动画 | |
+|------|------|------|------|
+| **待命** | `#aaaaaa` 灰白 | 慢速旋转，低存在感 | <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/idle.svg" width="32" height="32"> |
+| **思考** | `#ff8830` 琥珀 | 呼吸辉光，一圈一圈 | <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/thinking.svg" width="32" height="32"> |
+| **执行** | `#3399ff` 蓝色 | 高速旋转，工具调用密集时节奏更快 | <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/executing.svg" width="32" height="32"> |
+| **等待输入** | `#ee3333` 红色 | 脉动闪烁——Permission 弹窗、确认提示，不会错过 | <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/input_needed.svg" width="32" height="32"> |
+| **完成** | `#33cc55` 绿色 | 柔和呼吸，安静地告诉你好了 | <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/completed.svg" width="32" height="32"> |
+| **压缩** | `#9944ff` 紫色 | 半径脉冲，上下文整理中，短暂又优雅 | <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/compacting.svg" width="32" height="32"> |
+
+光环有 3 层渲染——外层的幽光晕影、中层的渐变过渡、内层的实色主线——加上弧段间的流体形变，视觉上既是"技术感的精确"，又是"手作感的柔和"。
+
+👉 **[在线演示](https://houyusu.github.io/claude-halo/)**
 
 ---
 
