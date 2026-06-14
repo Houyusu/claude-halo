@@ -3,117 +3,137 @@
 // Window-level focus detection via CoreGraphics (CGWindowList).
 // Precise CGWindowID matching — same semantics as Windows HWND.
 // Focus restore via osascript.  Process liveness via kill(0).
+//
+// Uses raw CoreFoundation FFI to avoid version-sensitive safe wrappers.
 
 use std::ffi::c_void;
 use std::fs;
-use std::path::PathBuf;
 use std::process::Command;
-
-use core_foundation::array::CFArray;
-use core_foundation::base::TCFType;
-use core_foundation::string::CFString;
-use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
-use core_foundation_sys::base::CFTypeRef;
-use core_foundation_sys::dictionary::{CFDictionaryGetValueIfPresent, CFDictionaryRef};
-use core_foundation_sys::number::{kCFNumberSInt32Type, CFNumberGetValue};
-use core_graphics::window::{
-    CGWindowListCopyWindowInfo, kCGWindowListExcludeDesktopElements,
-    kCGWindowListOptionOnScreenOnly,
-};
 
 pub type WindowId = u32;
 
-// ── CGWindow dictionary key constants ────────────────────────────────
+// ── CoreFoundation / CoreGraphics FFI (manual, stable across versions) ─
+
+type CFIndex = isize;
+type CFArrayRef = *const c_void;
+type CFDictionaryRef = *const c_void;
+type CFStringRef = *const c_void;
+type CFNumberRef = *const c_void;
+type CFTypeRef = *const c_void;
+type CFNumberType = i64;
+type Boolean = u8;
+type CGWindowID = u32;
+
+const KCG_NUMBER_SINT32: CFNumberType = 3;
+const KCG_WINDOW_LIST_OPTION_ON_SCREEN_ONLY: u32 = 0;
+const KCG_WINDOW_LIST_OPTION_EXCLUDE_DESKTOP: u32 = 1 << 4;
 
 extern "C" {
-    // These are CFStringRef globals defined by CoreGraphics/CGWindow.h.
-    // Declared as *const c_void to avoid depending on the exact opaque
-    // CFString type, which varies across core-foundation versions.
-    static kCGWindowNumber: *const c_void;
-    static kCGWindowOwnerPID: *const c_void;
-    static kCGWindowLayer: *const c_void;
+    // CGWindowList
+    fn CGWindowListCopyWindowInfo(option: u32, relativeToWindow: CGWindowID) -> CFArrayRef;
+
+    // CGWindow dictionary keys (CFStringRef constants)
+    static kCGWindowNumber: CFStringRef;
+    static kCGWindowOwnerPID: CFStringRef;
+    static kCGWindowLayer: CFStringRef;
+
+    // CFArray
+    fn CFArrayGetCount(theArray: CFArrayRef) -> CFIndex;
+    fn CFArrayGetValueAtIndex(theArray: CFArrayRef, idx: CFIndex) -> *const c_void;
+
+    // CFDictionary
+    fn CFDictionaryGetValueIfPresent(
+        theDict: CFDictionaryRef,
+        key: *const c_void,
+        value: *mut *const c_void,
+    ) -> Boolean;
+
+    // CFNumber
+    fn CFNumberGetValue(
+        number: CFNumberRef,
+        theType: CFNumberType,
+        valuePtr: *mut c_void,
+    ) -> Boolean;
+
+    // Memory management
+    fn CFRelease(cf: CFTypeRef);
 }
 
-fn cfstr_from_static(r: &'static *const c_void) -> CFString {
-    unsafe { CFString::wrap_under_get_rule(*r as *const _) }
-}
+// ── Helpers ──────────────────────────────────────────────────────────
 
-/// Get an i32 value from a CFDictionary for a given key.
-fn dict_get_i32(dict: CFDictionaryRef, key: &CFString) -> Option<i32> {
+/// Extract an i32 value from a CFDictionary for the given key.
+fn dict_get_i32(dict: CFDictionaryRef, key: CFStringRef) -> Option<i32> {
     let mut cf_val: *const c_void = std::ptr::null();
     let found = unsafe {
-        CFDictionaryGetValueIfPresent(dict, key.as_void_ptr(), &mut cf_val)
+        CFDictionaryGetValueIfPresent(dict, key as *const c_void, &mut cf_val)
     };
     if found == 0 || cf_val.is_null() {
         return None;
     }
     let mut val: i32 = 0;
-    let ok = unsafe { CFNumberGetValue(cf_val as _, kCFNumberSInt32Type, &mut val) };
-    if ok != 0 { Some(val) } else { None }
+    let ok = unsafe { CFNumberGetValue(cf_val as CFNumberRef, KCG_NUMBER_SINT32, &mut val as *mut i32 as *mut c_void) };
+    if ok == 0 { None } else { Some(val) }
 }
 
-/// Return the first on-screen, non-system-layer window from CGWindowList.
-/// The list is ordered front-to-back, so the first match is the frontmost.
-fn get_frontmost_window() -> Option<u32> {
-    let opts = kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements;
+/// Return the first on-screen (layer 0) window from CGWindowList.
+/// The list is ordered front-to-back, so the first match is the frontmost window.
+fn get_frontmost_window() -> Option<CGWindowID> {
+    let opts = KCG_WINDOW_LIST_OPTION_ON_SCREEN_ONLY | KCG_WINDOW_LIST_OPTION_EXCLUDE_DESKTOP;
     let array_ref = unsafe { CGWindowListCopyWindowInfo(opts, 0) };
     if array_ref.is_null() {
         return None;
     }
-    let array = unsafe { CFArray::wrap_under_create_rule(array_ref as *mut _) };
-    let count = unsafe { CFArrayGetCount(array.as_CFTypeRef() as _) };
-    let layer_key = cfstr_from_static(unsafe { &kCGWindowLayer });
-    let number_key = cfstr_from_static(unsafe { &kCGWindowNumber });
+    let count = unsafe { CFArrayGetCount(array_ref) };
 
     for i in 0..count {
-        let dict_ref = unsafe { CFArrayGetValueAtIndex(array.as_CFTypeRef() as _, i) } as CFDictionaryRef;
+        let dict_ref = unsafe { CFArrayGetValueAtIndex(array_ref, i) } as CFDictionaryRef;
+
         // Skip system overlay windows (layer ≠ 0)
-        if let Some(layer) = dict_get_i32(dict_ref, &layer_key) {
+        if let Some(layer) = dict_get_i32(dict_ref, unsafe { kCGWindowLayer }) {
             if layer != 0 {
                 continue;
             }
         }
-        if let Some(num) = dict_get_i32(dict_ref, &number_key) {
-            return Some(num as u32);
+        if let Some(num) = dict_get_i32(dict_ref, unsafe { kCGWindowNumber }) {
+            unsafe { CFRelease(array_ref as CFTypeRef); }
+            return Some(num as CGWindowID);
         }
     }
+    unsafe { CFRelease(array_ref as CFTypeRef); }
     None
 }
 
 /// Check whether a CGWindowID still exists in the on-screen window list.
-fn window_id_exists(window_id: u32) -> bool {
-    let opts = kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements;
+fn window_id_exists(window_id: CGWindowID) -> bool {
+    let opts = KCG_WINDOW_LIST_OPTION_ON_SCREEN_ONLY | KCG_WINDOW_LIST_OPTION_EXCLUDE_DESKTOP;
     let array_ref = unsafe { CGWindowListCopyWindowInfo(opts, 0) };
     if array_ref.is_null() {
         return false;
     }
-    let array = unsafe { CFArray::wrap_under_create_rule(array_ref as *mut _) };
-    let count = unsafe { CFArrayGetCount(array.as_CFTypeRef() as _) };
-    let number_key = cfstr_from_static(unsafe { &kCGWindowNumber });
+    let count = unsafe { CFArrayGetCount(array_ref) };
 
+    let mut exists = false;
     for i in 0..count {
-        let dict_ref =
-            unsafe { CFArrayGetValueAtIndex(array.as_CFTypeRef() as _, i) } as CFDictionaryRef;
-        if let Some(num) = dict_get_i32(dict_ref, &number_key) {
-            if num as u32 == window_id {
-                return true;
+        let dict_ref = unsafe { CFArrayGetValueAtIndex(array_ref, i) } as CFDictionaryRef;
+        if let Some(num) = dict_get_i32(dict_ref, unsafe { kCGWindowNumber }) {
+            if num as CGWindowID == window_id {
+                exists = true;
+                break;
             }
         }
     }
-    false
+    unsafe { CFRelease(array_ref as CFTypeRef); }
+    exists
 }
 
 // ── Focus / window functions ─────────────────────────────────────────
 
 pub fn save_foreground() -> WindowId {
-    // On macOS the transparent halo window typically does not steal focus,
-    // but we save the frontmost window ID anyway for consistency.
     get_frontmost_window().unwrap_or(0)
 }
 
 pub fn restore_focus(_id: WindowId) {
     // osascript is the simplest way to refocus the previous app.
-    // We use `ignoring application responses` so the script doesn't block.
     // On macOS the halo window rarely steals focus, so this is belt-and-suspenders.
     let script = format!(
         "tell application \"System Events\" to set frontmost of first process \
@@ -126,7 +146,7 @@ pub fn restore_focus(_id: WindowId) {
 }
 
 pub fn is_window_valid(id: WindowId) -> bool {
-    id != 0 && window_id_exists(id)
+    id != 0 && window_id_exists(id as CGWindowID)
 }
 
 pub fn get_focused_window() -> WindowId {
@@ -170,7 +190,6 @@ pub fn is_process_alive(pid: u32) -> bool {
     }
     // kill(pid, 0) — no signal sent, only permissions/ESRCH checked.
     // Returns 0 if the process exists, -1 with errno=ESRCH if not.
-    // This is the canonical POSIX process-liveness check.
     unsafe { libc::kill(pid as i32, 0) == 0 }
 }
 
