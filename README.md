@@ -15,7 +15,7 @@
 
 光环颜色和动画随 Claude Code 状态自动变化，每个状态有独特的视觉节奏。
 
-完整动画效果请访问 **[在线演示](https://houyusu.github.io/claude-halo/)**——衬线字体 + 自动轮播，每个状态有独特的视觉节奏。
+完整动画效果请访问 **[在线演示](https://houyusu.github.io/claude-halo/)**
 
 <table>
 <tr>
