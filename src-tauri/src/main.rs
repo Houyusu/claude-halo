@@ -417,17 +417,25 @@ fn main() {
                             }
                         }
                         // Monitor focus continuously during the completed display.
-                        // If the terminal loses focus at any point, the user may
-                        // have walked away — hold green indefinitely until they
-                        // return and send a new message.
-                        if !hold_completed {
-                            let fg = unsafe { GetForegroundWindow() };
-                            if fg != saved_hwnd {
-                                hold_completed = true;
-                            }
+                        // If the terminal loses focus, the user may have walked away
+                        // — hold green indefinitely.  When focus returns, fade to idle.
+                        let fg = unsafe { GetForegroundWindow() };
+                        let terminal_focused = fg != 0 && fg == saved_hwnd;
+                        if !hold_completed && !terminal_focused {
+                            hold_completed = true;
+                        }
+                        if hold_completed && terminal_focused {
+                            // User returned — release hold and fade to idle
+                            hold_completed = false;
+                            completed_consumed = true;
+                            completed_since = None;
+                            let _ = win.emit("state-changed", HaloState::Idle.to_str());
+                            *st.lock().await = HaloState::Idle;
+                            displayed = Some(HaloState::Idle);
+                            continue;
                         }
                         // Normal completed (user watching): hold for 3s, then fade.
-                        // hold_completed (compaction or user-away): hold indefinitely.
+                        // hold_completed (user-away): hold until focus returns.
                         if !hold_completed {
                             let elapsed = completed_since.unwrap().elapsed();
                             if elapsed.as_secs() >= 3 {
