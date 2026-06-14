@@ -15,6 +15,10 @@ extern "system" {
     // Focus restoration — save terminal window before halo steals it
     fn GetForegroundWindow() -> isize;
     fn SetForegroundWindow(hWnd: isize) -> i32;
+    // Window enumeration — find terminal window by process PID
+    fn EnumWindows(lpEnumFunc: unsafe extern "system" fn(isize, isize) -> i32, lParam: isize) -> i32;
+    fn GetWindowThreadProcessId(hWnd: isize, lpdwProcessId: *mut u32) -> u32;
+    fn IsWindowVisible(hWnd: isize) -> i32;
     // Process liveness check — detect when Claude Code has exited
     fn OpenProcess(dwDesiredAccess: u32, bInheritHandle: i32, dwProcessId: u32) -> isize;
     fn CloseHandle(hObject: isize) -> i32;
@@ -177,6 +181,31 @@ fn is_hotkey_down() -> bool {
     }
 }
 
+/// Find a visible top-level window belonging to the given process PID.
+/// Uses EnumWindows + GetWindowThreadProcessId.  Returns the first
+/// visible window handle, or None if no window is found.
+fn find_window_for_pid(pid: u32) -> Option<isize> {
+    struct Ctx { pid: u32, result: Option<isize> }
+
+    unsafe extern "system" fn callback(hwnd: isize, lparam: isize) -> i32 {
+        if IsWindowVisible(hwnd) == 0 { return 1; }
+        let ctx = &mut *(lparam as *mut Ctx);
+        let mut wpid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, &mut wpid);
+        if wpid == ctx.pid {
+            ctx.result = Some(hwnd);
+            return 0; // stop enumeration
+        }
+        1 // continue
+    }
+
+    unsafe {
+        let mut ctx = Ctx { pid, result: None };
+        EnumWindows(callback, &mut ctx as *mut Ctx as isize);
+        ctx.result
+    }
+}
+
 // ── Tauri commands ────────────────────────────────────────────────
 
 #[tauri::command]
@@ -246,6 +275,7 @@ fn main() {
                 let mut completed_since: Option<std::time::Instant> = None;
                 let mut completed_consumed = false;
                 let mut hold_completed = false; // compaction or user-away: hold green
+                let mut terminal_hwnd: isize = 0; // dynamically tracked terminal window
                 let mut think_hold_until: Option<std::time::Instant> = None;
                 let mut saw_non_executing = true;
                 // Process liveness check: find claude.exe via Toolhelp32
@@ -279,6 +309,11 @@ fn main() {
                             if !is_process_alive(pid) {
                                 let _ = win.close();
                                 break;
+                            }
+                            // Also refresh the terminal window handle — it can
+                            // change after compaction or when the terminal restarts.
+                            if let Some(hwnd) = find_window_for_pid(pid) {
+                                terminal_hwnd = hwnd;
                             }
                         } else {
                             // No claude.exe running at all — exit
@@ -420,7 +455,7 @@ fn main() {
                         // If the terminal loses focus, the user may have walked away
                         // — hold green indefinitely.  When focus returns, fade to idle.
                         let fg = unsafe { GetForegroundWindow() };
-                        let terminal_focused = fg != 0 && fg == saved_hwnd;
+                        let terminal_focused = fg != 0 && fg == terminal_hwnd;
                         if !hold_completed && !terminal_focused {
                             hold_completed = true;
                         }
