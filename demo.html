@@ -230,12 +230,12 @@ function lerpRgb(a,b,t){return[Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1
 function rgba(r,g,b,a){return"rgba("+r+","+g+","+b+","+a+")"}
 
 var CONFIGS = {
-  idle:         {color:"#aaaaaa",halo:"#cccccc",period:6.0,dashes:[60,30],               ms:0,  md:0,   amin:0.30,amax:0.42,br:0,  rp:0,   rpperiod:0,   label:"待命 Idle",          desc:"等待输入，低存在感灰白两段慢速旋转"},
-  thinking:     {color:"#ff8830",halo:"#ffdbb8",period:2.4,dashes:[70,35,45,30,25,20],   ms:0.6,md:0.4, amin:0.45,amax:0.90,br:5.2,rp:0,   rpperiod:0,   label:"思考 Thinking",       desc:"正在推理，琥珀色六段呼吸辉光"},
-  executing:    {color:"#3399ff",halo:"#bbddff",period:1.3,dashes:[50,25,20,20,35,25,25,22],ms:1.2,md:0.28,amin:0.60,amax:0.90,br:0,  rp:0,   rpperiod:0,   label:"执行 Executing",      desc:"执行工具调用，蓝色八段高速旋转"},
-  input_needed: {color:"#ee3333",halo:"#ffcccc",period:2.8,dashes:[80,50,30,25],          ms:1.8,md:0.5, amin:0.52,amax:0.94,br:2.0,rp:0,   rpperiod:0,   label:"等待输入 Input Needed",desc:"需要用户响应，红色四段呼吸提醒"},
-  completed:    {color:"#33cc55",halo:"#bbffcc",period:5.0,dashes:[70,35,45,30,25,20],   ms:0.5,md:0.3, amin:0.38,amax:0.84,br:6.0,rp:0,   rpperiod:0,   label:"已完成 Completed",     desc:"任务完成，绿色六段柔和呼吸"},
-  compacting:   {color:"#9944ff",halo:"#ddccff",period:2.1,dashes:[35,20,35,20,35,20],   ms:0.4,md:0.25,amin:0.38,amax:0.80,br:4.0,rp:0.12,rpperiod:1.6, label:"压缩 Compacting",     desc:"上下文压缩，紫色六段半径脉冲"},
+  idle:         {color:"#aaaaaa",halo:"#cccccc",period:6.0,dashes:[60,30],               ms:0,  md:0,   amin:0.30,amax:0.42,br:0,  rp:0,   rpperiod:0,   label:"待命 Idle",          desc:"等待输入 · 低存在感灰白慢速旋转"},
+  thinking:     {color:"#ff8830",halo:"#ffdbb8",period:2.4,dashes:[70,35,45,30,25,20],   ms:0.6,md:0.4, amin:0.45,amax:0.90,br:5.2,rp:0,   rpperiod:0,   label:"思考 Thinking",       desc:"正在推理 · 琥珀色呼吸辉光"},
+  executing:    {color:"#3399ff",halo:"#bbddff",period:1.3,dashes:[50,25,20,20,35,25,25,22],ms:1.2,md:0.28,amin:0.60,amax:0.90,br:0,  rp:0,   rpperiod:0,   label:"执行 Executing",      desc:"执行工具调用 · 蓝色高速旋转"},
+  input_needed: {color:"#ee3333",halo:"#ffcccc",period:2.8,dashes:[80,50,30,25],          ms:1.8,md:0.5, amin:0.52,amax:0.94,br:2.0,rp:0,   rpperiod:0,   label:"等待输入 Input Needed",desc:"需要用户响应 · 红色呼吸提醒"},
+  completed:    {color:"#33cc55",halo:"#bbffcc",period:5.0,dashes:[70,35,45,30,25,20],   ms:0.5,md:0.3, amin:0.38,amax:0.84,br:6.0,rp:0,   rpperiod:0,   label:"已完成 Completed",     desc:"任务完成 · 绿色柔和呼吸"},
+  compacting:   {color:"#9944ff",halo:"#ddccff",period:2.1,dashes:[35,20,35,20,35,20],   ms:0.4,md:0.25,amin:0.38,amax:0.80,br:4.0,rp:0.12,rpperiod:1.6, label:"压缩 Compacting",     desc:"上下文压缩 · 紫色半径脉冲"},
 };
 
 var STATE_ORDER = ["idle", "thinking", "executing", "input_needed", "completed", "compacting"];
