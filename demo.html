@@ -73,15 +73,35 @@
 
   /* ── Install section ───────────────────────────────────────── */
   .install-section{margin-top:40px;text-align:center}
-  .install-section h2{font-size:16px;font-weight:500;color:#777;letter-spacing:6px;margin-bottom:18px}
-  .install-platforms{display:flex;flex-direction:column;align-items:center;gap:12px}
-  .install-platform{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 20px;min-width:240px;text-align:left}
-  .install-platform.mac{opacity:0.45}
-  .platform-icon{color:#666;margin-bottom:8px}
-  .platform-name{font-size:14px;font-weight:600;color:#aaa;margin-bottom:10px}
-  .install-platform code{display:block;font-size:12px;color:#777;line-height:1.8;font-family:"Cascadia Code","Fira Code","SF Mono",monospace}
-  .install-platform.mac .platform-name{color:#555}
-  .platform-coming{font-size:13px;color:#444;font-style:italic;padding:4px 0}
+  .install-section h2{font-size:16px;font-weight:500;color:#777;letter-spacing:6px;margin-bottom:20px}
+  .install-platforms{display:flex;flex-direction:column;align-items:center;gap:16px}
+  .install-platform{
+    width:380px;max-width:90vw;
+    background:rgba(255,255,255,0.025);
+    border:1px solid rgba(255,255,255,0.08);border-radius:12px;
+    padding:20px 24px;text-align:left;
+  }
+  .install-platform.mac{
+    border-style:dashed;border-color:rgba(255,255,255,0.05);
+    background:rgba(255,255,255,0.015);
+  }
+  .platform-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .platform-header .platform-icon{color:#888;display:flex}
+  .platform-header .platform-name{font-size:15px;font-weight:600;color:#bbb}
+  .install-platform.mac .platform-header .platform-name{color:#777}
+  .install-steps{display:flex;flex-direction:column;gap:14px}
+  .install-step{display:flex;flex-direction:column;gap:5px}
+  .install-step .step-label{font-size:11px;color:#555;letter-spacing:2px;text-transform:uppercase}
+  .install-step code{
+    display:block;font-size:12px;color:#999;line-height:1.6;
+    padding:8px 12px;background:rgba(0,0,0,0.25);border-radius:6px;
+    font-family:"Cascadia Code","Fira Code","SF Mono",monospace;
+    word-break:break-all;
+  }
+  .platform-coming{
+    font-size:13px;color:#555;padding:8px 0;
+    text-align:center;letter-spacing:2px;
+  }
 </style>
 </head>
 <body>
@@ -117,14 +137,26 @@
   <h2>安装</h2>
   <div class="install-platforms">
     <div class="install-platform">
-      <div class="platform-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-      <div class="platform-name">Windows</div>
-      <code>/plugin marketplace add Houyusu/claude-halo
-/plugin install claude-halo-win@claude-halo</code>
+      <div class="platform-header">
+        <div class="platform-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+        <div class="platform-name">Windows</div>
+      </div>
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="step-label">添加市场</div>
+          <code>/plugin marketplace add Houyusu/claude-halo</code>
+        </div>
+        <div class="install-step">
+          <div class="step-label">安装插件</div>
+          <code>/plugin install claude-halo-win@claude-halo</code>
+        </div>
+      </div>
     </div>
     <div class="install-platform mac">
-      <div class="platform-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
-      <div class="platform-name">macOS</div>
+      <div class="platform-header">
+        <div class="platform-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+        <div class="platform-name">macOS</div>
+      </div>
       <div class="platform-coming">还未上线</div>
     </div>
   </div>
