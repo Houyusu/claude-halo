@@ -55,6 +55,29 @@
   footer{
     color:#3a3a3a;font-size:12px;
   }
+
+  /* ── Auto-play bar ─────────────────────────────────────────── */
+  .auto-play-bar{
+    display:flex;align-items:center;gap:14px;
+  }
+  .auto-play-btn{
+    display:flex;align-items:center;gap:6px;
+    padding:6px 14px;border:1px solid rgba(255,255,255,0.12);border-radius:18px;
+    background:transparent;color:#666;font-size:12px;cursor:pointer;
+    transition:all .3s;font-family:inherit;
+  }
+  .auto-play-btn:hover{color:#aaa;border-color:rgba(255,255,255,0.28)}
+  .auto-play-btn.playing{color:#888;border-color:rgba(255,255,255,0.18)}
+  .auto-play-btn.paused{color:#ee5555;border-color:rgba(238,85,85,0.35)}
+  .auto-play-btn svg{transition:opacity .3s}
+
+  .progress-dots{display:flex;gap:7px}
+  .progress-dots .dot{
+    width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.06);
+    transition:all .35s;
+  }
+  .progress-dots .dot.active{background:rgba(255,255,255,0.45);box-shadow:0 0 6px rgba(255,255,255,0.15)}
+  .progress-dots .dot.visited{background:rgba(255,255,255,0.14)}
 </style>
 </head>
 <body>
@@ -77,6 +100,21 @@
   <button class="state-btn" data-state="input_needed">等待</button>
   <button class="state-btn" data-state="completed">完成</button>
   <button class="state-btn" data-state="compacting">压缩</button>
+</div>
+
+<div class="auto-play-bar">
+  <button class="auto-play-btn playing" id="autoPlayBtn" title="暂停自动播放">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    <span>自动播放</span>
+  </button>
+  <div class="progress-dots" id="progressDots">
+    <span class="dot active" data-idx="0"></span>
+    <span class="dot" data-idx="1"></span>
+    <span class="dot" data-idx="2"></span>
+    <span class="dot" data-idx="3"></span>
+    <span class="dot" data-idx="4"></span>
+    <span class="dot" data-idx="5"></span>
+  </div>
 </div>
 
 <footer>Claude Halo</footer>
@@ -104,6 +142,9 @@ var CONFIGS = {
   completed:    {color:"#33cc55",halo:"#bbffcc",period:5.0,dashes:[70,35,45,30,25,20],   ms:0.5,md:0.3, amin:0.38,amax:0.84,br:6.0,rp:0,   rpperiod:0,   label:"已完成 Completed",     desc:"任务完成，绿色六段柔和呼吸"},
   compacting:   {color:"#9944ff",halo:"#ddccff",period:2.1,dashes:[35,20,35,20,35,20],   ms:0.4,md:0.25,amin:0.38,amax:0.80,br:4.0,rp:0.12,rpperiod:1.6, label:"压缩 Compacting",     desc:"上下文压缩，紫色六段半径脉冲"},
 };
+
+var STATE_ORDER = ["idle", "thinking", "executing", "input_needed", "completed", "compacting"];
+var AUTO_INTERVAL = 3500; // ms per state
 
 var MORPH_DURATION = 420;
 var ENTRY_DURATION = 550;
@@ -287,10 +328,78 @@ function setState(name){
 window.setState=setState;
 
 // ═══════════════════════════════════════════════════════════════════════
+// Auto-play
+// ═══════════════════════════════════════════════════════════════════════
+
+var autoPlayTimer = null;
+var autoPlaying = true;
+var autoIdx = 0;
+
+function updateDots(activeState){
+  var idx = STATE_ORDER.indexOf(activeState);
+  document.querySelectorAll("#progressDots .dot").forEach(function(d){
+    var di = parseInt(d.dataset.idx);
+    d.classList.remove("active","visited");
+    if (di === idx) d.classList.add("active");
+    else if (di < idx) d.classList.add("visited");
+  });
+}
+
+function autoAdvance(){
+  if (!autoPlaying) return;
+  autoIdx = (autoIdx + 1) % STATE_ORDER.length;
+  var next = STATE_ORDER[autoIdx];
+  // Trigger morph
+  morphFrom = morphActive ? morphConfig(morphFrom, CONFIGS[targetState], Math.min((performance.now()-morphStart)/MORPH_DURATION, 1)) : currentCfg;
+  morphStart = performance.now(); morphActive = true;
+  pulseSettleStart = 0;
+  setState(next);
+  updateDots(next);
+  scheduleNext();
+}
+
+function scheduleNext(){
+  if (autoPlayTimer) clearTimeout(autoPlayTimer);
+  if (!autoPlaying) return;
+  autoPlayTimer = setTimeout(autoAdvance, AUTO_INTERVAL);
+}
+
+function toggleAutoPlay(){
+  autoPlaying = !autoPlaying;
+  var btn = document.getElementById("autoPlayBtn");
+  var svg = btn.querySelector("svg");
+  if (autoPlaying) {
+    btn.className = "auto-play-btn playing";
+    btn.title = "暂停自动播放";
+    btn.querySelector("span").textContent = "自动播放";
+    // Resume from current state
+    autoIdx = STATE_ORDER.indexOf(targetState);
+    updateDots(targetState);
+    // Pause icon (two bars)
+    svg.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    scheduleNext();
+  } else {
+    btn.className = "auto-play-btn paused";
+    btn.title = "恢复自动播放";
+    btn.querySelector("span").textContent = "已暂停";
+    if (autoPlayTimer) clearTimeout(autoPlayTimer);
+    // Play icon (triangle)
+    svg.innerHTML = '<polygon points="7,5 18,12 7,19"/>';
+  }
+}
+
+document.getElementById("autoPlayBtn").addEventListener("click", toggleAutoPlay);
+
+// ═══════════════════════════════════════════════════════════════════════
 // Init
 // ═══════════════════════════════════════════════════════════════════════
 
 rafId=requestAnimationFrame(frame);
+
+// Start auto-play after entry animation finishes
+setTimeout(function(){
+  scheduleNext();
+}, ENTRY_DURATION + 200);
 
 document.getElementById("statePicker").addEventListener("click",function(e){
   var btn=e.target.closest(".state-btn");
@@ -300,6 +409,15 @@ document.getElementById("statePicker").addEventListener("click",function(e){
   morphStart=performance.now();morphActive=true;
   pulseSettleStart=0;
   setState(btn.dataset.state);
+  // Sync auto-play index and resume after manual click
+  autoIdx = STATE_ORDER.indexOf(btn.dataset.state);
+  updateDots(btn.dataset.state);
+  if (!autoPlaying) {
+    // If paused, stay paused but track where they are
+    return;
+  }
+  // Restart timer so user has time to look at this state
+  scheduleNext();
 });
 
 })();
