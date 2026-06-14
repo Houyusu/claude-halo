@@ -19,9 +19,12 @@
 我一直想要那种感觉。</br>
 不是盯着冷冰冰的指令行，而是在余光里就能感知到 Claude 此刻的"心绪"。</br>
 </br>
-Claude Halo 就是这样一个东西。它安静地待在屏幕右下角，不遮挡、不弹出、不打扰——鼠标能直接穿透它点到底下的窗口——但它的光环从不静止：
+Claude Halo 就是这样一个东西。</br>
+它安静地待在屏幕右下角，不遮挡、不弹出、不打扰。</br>
+鼠标能直接穿透它点到底下的窗口——但它的光环从不静止：</br>
+</br>
 
-| 状态 | 颜色 | 动画 | |
+| 状态 | 颜色 | 动画 | 设计 |
 |------|------|------|------|
 | **待命** | `#aaaaaa` 灰白 | 慢速旋转，低存在感 | <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/idle.svg" width="32" height="32"> |
 | **思考** | `#ff8830` 琥珀 | 呼吸辉光，一圈一圈 | <img src="https://raw.githubusercontent.com/Houyusu/claude-halo/master/docs/states/thinking.svg" width="32" height="32"> |
