@@ -196,6 +196,10 @@ fn main() {
             .initialization_script("document.documentElement.style.setProperty('background','transparent','important');document.body.style.setProperty('background','transparent','important');")
             .build()?;
 
+            // Mouse passthrough — halo is a pure visual indicator,
+            // all clicks pass through to windows beneath.
+            let _ = window.set_ignore_cursor_events(true);
+
             // Position at bottom-right of primary monitor
             // x: -28px from right edge, y: -140px from bottom
             if let Ok(Some(monitor)) = window.primary_monitor() {
