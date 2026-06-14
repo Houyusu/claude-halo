@@ -71,18 +71,10 @@
   .auto-play-btn.paused{color:#ee5555;border-color:rgba(238,85,85,0.35)}
   .auto-play-btn svg{transition:opacity .3s}
 
-  .progress-dots{display:flex;gap:7px}
-  .progress-dots .dot{
-    width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.06);
-    transition:all .35s;
-  }
-  .progress-dots .dot.active{background:rgba(255,255,255,0.45);box-shadow:0 0 6px rgba(255,255,255,0.15)}
-  .progress-dots .dot.visited{background:rgba(255,255,255,0.14)}
-
   /* ── Install section ───────────────────────────────────────── */
-  .install-section{margin-top:8px;text-align:center}
-  .install-section h2{font-size:13px;font-weight:500;color:#555;letter-spacing:4px;margin-bottom:14px}
-  .install-platforms{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+  .install-section{margin-top:40px;text-align:center}
+  .install-section h2{font-size:16px;font-weight:500;color:#777;letter-spacing:6px;margin-bottom:18px}
+  .install-platforms{display:flex;flex-direction:column;align-items:center;gap:12px}
   .install-platform{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 20px;min-width:240px;text-align:left}
   .install-platform.mac{opacity:0.45}
   .platform-icon{color:#666;margin-bottom:8px}
@@ -114,19 +106,11 @@
   <button class="state-btn" data-state="compacting">压缩</button>
 </div>
 
-<div class="auto-play-bar">
+<div class="auto-play-bar" style="justify-content:center">
   <button class="auto-play-btn playing" id="autoPlayBtn" title="暂停自动播放">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
     <span>自动播放</span>
   </button>
-  <div class="progress-dots" id="progressDots">
-    <span class="dot active" data-idx="0"></span>
-    <span class="dot" data-idx="1"></span>
-    <span class="dot" data-idx="2"></span>
-    <span class="dot" data-idx="3"></span>
-    <span class="dot" data-idx="4"></span>
-    <span class="dot" data-idx="5"></span>
-  </div>
 </div>
 
 <div class="install-section">
@@ -364,16 +348,6 @@ var autoPlayTimer = null;
 var autoPlaying = true;
 var autoIdx = 0;
 
-function updateDots(activeState){
-  var idx = STATE_ORDER.indexOf(activeState);
-  document.querySelectorAll("#progressDots .dot").forEach(function(d){
-    var di = parseInt(d.dataset.idx);
-    d.classList.remove("active","visited");
-    if (di === idx) d.classList.add("active");
-    else if (di < idx) d.classList.add("visited");
-  });
-}
-
 function autoAdvance(){
   if (!autoPlaying) return;
   autoIdx = (autoIdx + 1) % STATE_ORDER.length;
@@ -382,7 +356,7 @@ function autoAdvance(){
   morphStart = performance.now(); morphActive = true;
   pulseSettleStart = 0;
   setState(next);
-  updateDots(next);
+  
   scheduleNext();
 }
 
@@ -401,7 +375,7 @@ function toggleAutoPlay(){
     btn.title = "暂停自动播放";
     btn.querySelector("span").textContent = "自动播放";
     autoIdx = STATE_ORDER.indexOf(targetState);
-    updateDots(targetState);
+    
     svg.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
     scheduleNext();
   } else {
@@ -434,7 +408,7 @@ document.getElementById("statePicker").addEventListener("click",function(e){
   pulseSettleStart=0;
   setState(btn.dataset.state);
   autoIdx = STATE_ORDER.indexOf(btn.dataset.state);
-  updateDots(btn.dataset.state);
+  
   if (!autoPlaying) return;
   scheduleNext();
 });
