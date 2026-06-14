@@ -228,6 +228,7 @@ fn main() {
                 let mut completed_since: Option<std::time::Instant> = None;
                 let mut completed_consumed = false;
                 let mut hold_completed = false; // compaction or user-away: hold green
+                let mut focus_hwnd = saved_hwnd; // dynamically updated terminal handle
                 let mut think_hold_until: Option<std::time::Instant> = None;
                 let mut saw_non_executing = true;
                 // Process liveness check: find claude.exe via Toolhelp32
@@ -259,6 +260,18 @@ fn main() {
                         alive_check_ticks = 15;
                     }
                     alive_check_ticks -= 1;
+
+                    // Dynamically track the terminal window handle.
+                    // saved_hwnd (captured at startup) can be wrong if halo is
+                    // launched from a script rather than directly from the terminal.
+                    // Every time the user is actively interacting, update focus_hwnd
+                    // to the current foreground window — the most reliable indicator.
+                    if matches!(raw_state, HaloState::Thinking | HaloState::Executing | HaloState::InputNeeded) {
+                        let fg = unsafe { GetForegroundWindow() };
+                        if fg != 0 {
+                            focus_hwnd = fg;
+                        }
+                    }
 
                     let mut new_state = if matches!(raw_state, HaloState::Completed) && completed_consumed {
                         HaloState::Idle
@@ -391,12 +404,12 @@ fn main() {
                         // If the terminal loses focus, the user may have walked away
                         // — hold green indefinitely.  When focus returns, fade to idle.
                         let fg = unsafe { GetForegroundWindow() };
-                        let terminal_focused = fg != 0 && fg == saved_hwnd;
-                        // The terminal window handle can become invalid if the
-                        // terminal is restarted.  Fall back to saved_hwnd unless
-                        // IsWindow says it's gone — in which case any fg is fine.
-                        let saved_valid = unsafe { IsWindow(saved_hwnd) != 0 };
-                        let effectively_focused = terminal_focused || (!saved_valid && fg != 0);
+                        let terminal_focused = fg != 0 && fg == focus_hwnd;
+                        // focus_hwnd is updated dynamically during active states.
+                        // If the terminal was restarted (e.g. compaction), the old
+                        // handle becomes invalid — fall back to any foreground window.
+                        let focus_valid = unsafe { IsWindow(focus_hwnd) != 0 };
+                        let effectively_focused = terminal_focused || (!focus_valid && fg != 0);
                         if !hold_completed && !effectively_focused {
                             hold_completed = true;
                         }
