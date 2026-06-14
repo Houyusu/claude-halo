@@ -410,22 +410,24 @@ fn main() {
                     if matches!(new_state, HaloState::Completed) {
                         if completed_since.is_none() {
                             completed_since = Some(std::time::Instant::now());
-                            // If the terminal is not in focus, the user may have
-                            // switched to another app and missed the completion.
-                            // Hold green until they return and send a new message.
-                            let terminal_focused = unsafe { GetForegroundWindow() == saved_hwnd };
-                            if !terminal_focused {
-                                hold_completed = true;
-                            }
                             if displayed != Some(HaloState::Completed) {
                                 let _ = win.emit("state-changed", HaloState::Completed.to_str());
                                 *st.lock().await = HaloState::Completed;
                                 displayed = Some(HaloState::Completed);
                             }
                         }
+                        // Monitor focus continuously during the completed display.
+                        // If the terminal loses focus at any point, the user may
+                        // have walked away — hold green indefinitely until they
+                        // return and send a new message.
+                        if !hold_completed {
+                            let fg = unsafe { GetForegroundWindow() };
+                            if fg != saved_hwnd {
+                                hold_completed = true;
+                            }
+                        }
                         // Normal completed (user watching): hold for 3s, then fade.
-                        // hold_completed (compaction or user-away): hold indefinitely
-                        // until the user sends a new message.
+                        // hold_completed (compaction or user-away): hold indefinitely.
                         if !hold_completed {
                             let elapsed = completed_since.unwrap().elapsed();
                             if elapsed.as_secs() >= 3 {
