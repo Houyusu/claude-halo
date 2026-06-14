@@ -68,7 +68,7 @@
       .then(function () {
         passthroughEnabled = false;
         updatePassthroughUI();
-        flashPassthroughHint("穿透已暂停 · 15秒后自动恢复 · Ctrl+Shift+F12 切换");
+        flashPassthroughHint("穿透已暂停 · 15秒后自动恢复");
         passthroughTimeout = setTimeout(function () {
           enablePassthrough();
         }, 15000);
@@ -114,10 +114,6 @@
       if (tauriEvent) {
         tauriEvent.listen("state-changed", function (event) {
           setState(event.payload);
-        });
-        // Global shortcut from Rust backend — works regardless of focus
-        tauriEvent.listen("toggle-passthrough", function () {
-          togglePassthrough();
         });
       }
     } catch (e) {

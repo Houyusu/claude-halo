@@ -10,8 +10,6 @@ use tokio::sync::Mutex;
 
 // ── Win32 FFI (all in-process, no subprocess spawns) ──────────────
 extern "system" {
-    // Keyboard state polling — works from any thread, any window, no message pump needed
-    fn GetAsyncKeyState(vk: i32) -> i16;
     // Focus restoration — save terminal window before halo steals it
     fn GetForegroundWindow() -> isize;
     fn SetForegroundWindow(hWnd: isize) -> i32;
@@ -46,11 +44,6 @@ struct PROCESSENTRY32W {
     dwFlags: u32,
     szExeFile: [u16; 260],
 }
-
-// Virtual key codes
-const VK_CONTROL: i32 = 0x11;
-const VK_SHIFT:   i32 = 0x10;
-const VK_F12:     i32 = 0x7B;
 
 // ── Halo state ────────────────────────────────────────────────────
 
@@ -168,17 +161,6 @@ fn is_process_alive(pid: u32) -> bool {
     }
 }
 
-/// Check if Ctrl+Shift+F12 is currently held down.
-/// GetAsyncKeyState queries the physical key state at call time.
-fn is_hotkey_down() -> bool {
-    unsafe {
-        let ctrl  = (GetAsyncKeyState(VK_CONTROL) as u16) & 0x8000 != 0;
-        let shift = (GetAsyncKeyState(VK_SHIFT)   as u16) & 0x8000 != 0;
-        let f12   = (GetAsyncKeyState(VK_F12)     as u16) & 0x8000 != 0;
-        ctrl && shift && f12
-    }
-}
-
 // ── Tauri commands ────────────────────────────────────────────────
 
 #[tauri::command]
@@ -256,19 +238,8 @@ fn main() {
 
                 // Hotkey: debounced with cooldown to prevent rapid-fire
                 // ~2s cooldown = 13 ticks × 150ms
-                let mut hotkey_cool: u32 = 0;
-
                 loop {
                     interval.tick().await;
-
-                    // ── Hotkey check (Ctrl+Shift+F12) ────────────
-                    if hotkey_cool > 0 {
-                        hotkey_cool -= 1;
-                    }
-                    if hotkey_cool == 0 && is_hotkey_down() {
-                        hotkey_cool = 13;
-                        let _ = win.emit("toggle-passthrough", ());
-                    }
 
                     // ── Read hook state ──────────────────────────
                     let raw_state = read_hook_state().unwrap_or(HaloState::Idle);
