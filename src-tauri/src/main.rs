@@ -303,8 +303,8 @@ fn main() {
                     // active state and raw_state is now idle/completed, inject Completed.
                     if completed_since.is_none() && !completed_consumed {
                         match (displayed, raw_state) {
-                            (Some(HaloState::Thinking | HaloState::Executing | HaloState::Compacting), HaloState::Idle)
-                            | (Some(HaloState::Thinking | HaloState::Executing | HaloState::Compacting), HaloState::Completed) => {
+                            (Some(HaloState::Thinking | HaloState::Executing | HaloState::InputNeeded | HaloState::Compacting), HaloState::Idle)
+                            | (Some(HaloState::Thinking | HaloState::Executing | HaloState::InputNeeded | HaloState::Compacting), HaloState::Completed) => {
                                 new_state = HaloState::Completed;
                             }
                             _ => {}
