@@ -59,7 +59,7 @@
 /plugin install claude-halo-win@claude-halo
 ```
 
-### macOS
+### Mac OS
 
 即将上线 🚧
 
