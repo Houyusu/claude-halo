@@ -78,6 +78,18 @@
   }
   .progress-dots .dot.active{background:rgba(255,255,255,0.45);box-shadow:0 0 6px rgba(255,255,255,0.15)}
   .progress-dots .dot.visited{background:rgba(255,255,255,0.14)}
+
+  /* ── Install section ───────────────────────────────────────── */
+  .install-section{margin-top:8px;text-align:center}
+  .install-section h2{font-size:13px;font-weight:500;color:#555;letter-spacing:4px;margin-bottom:14px}
+  .install-platforms{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+  .install-platform{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 20px;min-width:240px;text-align:left}
+  .install-platform.mac{opacity:0.45}
+  .platform-icon{color:#666;margin-bottom:8px}
+  .platform-name{font-size:14px;font-weight:600;color:#aaa;margin-bottom:10px}
+  .install-platform code{display:block;font-size:12px;color:#777;line-height:1.8;font-family:"Cascadia Code","Fira Code","SF Mono",monospace}
+  .install-platform.mac .platform-name{color:#555}
+  .platform-coming{font-size:13px;color:#444;font-style:italic;padding:4px 0}
 </style>
 </head>
 <body>
@@ -114,6 +126,23 @@
     <span class="dot" data-idx="3"></span>
     <span class="dot" data-idx="4"></span>
     <span class="dot" data-idx="5"></span>
+  </div>
+</div>
+
+<div class="install-section">
+  <h2>安装</h2>
+  <div class="install-platforms">
+    <div class="install-platform">
+      <div class="platform-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+      <div class="platform-name">Windows</div>
+      <code>/plugin marketplace add Houyusu/claude-halo
+/plugin install claude-halo-win@claude-halo</code>
+    </div>
+    <div class="install-platform mac">
+      <div class="platform-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+      <div class="platform-name">macOS</div>
+      <div class="platform-coming">还未上线</div>
+    </div>
   </div>
 </div>
 
@@ -349,7 +378,6 @@ function autoAdvance(){
   if (!autoPlaying) return;
   autoIdx = (autoIdx + 1) % STATE_ORDER.length;
   var next = STATE_ORDER[autoIdx];
-  // Trigger morph
   morphFrom = morphActive ? morphConfig(morphFrom, CONFIGS[targetState], Math.min((performance.now()-morphStart)/MORPH_DURATION, 1)) : currentCfg;
   morphStart = performance.now(); morphActive = true;
   pulseSettleStart = 0;
@@ -372,10 +400,8 @@ function toggleAutoPlay(){
     btn.className = "auto-play-btn playing";
     btn.title = "暂停自动播放";
     btn.querySelector("span").textContent = "自动播放";
-    // Resume from current state
     autoIdx = STATE_ORDER.indexOf(targetState);
     updateDots(targetState);
-    // Pause icon (two bars)
     svg.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
     scheduleNext();
   } else {
@@ -383,7 +409,6 @@ function toggleAutoPlay(){
     btn.title = "恢复自动播放";
     btn.querySelector("span").textContent = "已暂停";
     if (autoPlayTimer) clearTimeout(autoPlayTimer);
-    // Play icon (triangle)
     svg.innerHTML = '<polygon points="7,5 18,12 7,19"/>';
   }
 }
@@ -396,7 +421,6 @@ document.getElementById("autoPlayBtn").addEventListener("click", toggleAutoPlay)
 
 rafId=requestAnimationFrame(frame);
 
-// Start auto-play after entry animation finishes
 setTimeout(function(){
   scheduleNext();
 }, ENTRY_DURATION + 200);
@@ -409,14 +433,9 @@ document.getElementById("statePicker").addEventListener("click",function(e){
   morphStart=performance.now();morphActive=true;
   pulseSettleStart=0;
   setState(btn.dataset.state);
-  // Sync auto-play index and resume after manual click
   autoIdx = STATE_ORDER.indexOf(btn.dataset.state);
   updateDots(btn.dataset.state);
-  if (!autoPlaying) {
-    // If paused, stay paused but track where they are
-    return;
-  }
-  // Restart timer so user has time to look at this state
+  if (!autoPlaying) return;
   scheduleNext();
 });
 
