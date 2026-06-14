@@ -399,17 +399,6 @@ fn main() {
                                 *st.lock().await = HaloState::Completed;
                                 displayed = Some(HaloState::Completed);
                             }
-                            // After compaction the terminal restarts with a new HWND.
-                            // Re-capture it here so focus detection works for the
-                            // rest of the Completed period.  The new terminal
-                            // auto-gets focus, so GetForegroundWindow() is correct.
-                            if !focus_captured {
-                                let fg = unsafe { GetForegroundWindow() };
-                                if fg != 0 {
-                                    focus_hwnd = fg;
-                                    focus_captured = true;
-                                }
-                            }
                         }
                         // Monitor focus continuously during the completed display.
                         // If the terminal loses focus, the user may have walked away
@@ -417,8 +406,10 @@ fn main() {
                         let fg = unsafe { GetForegroundWindow() };
                         let terminal_focused = fg != 0 && fg == focus_hwnd;
                         let focus_valid = unsafe { IsWindow(focus_hwnd) != 0 };
-                        // If the terminal was restarted (e.g. compaction) and we
-                        // couldn't re-capture, fall back to any foreground window.
+                        // Fallback: if terminal HWND is stale (e.g. after compaction
+                        // restart), treat any foreground window as "focused" so the
+                        // 3s timer can run.  Without this, a stale HWND would cause
+                        // hold_completed to be set indefinitely.
                         let effectively_focused = terminal_focused || (!focus_valid && fg != 0);
                         if !hold_completed && !effectively_focused {
                             hold_completed = true;
