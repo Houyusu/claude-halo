@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows">
-  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple" alt="macOS">
+  <img src="https://img.shields.io/badge/macOS-即将上线-lightgrey?style=flat-square&logo=apple" alt="macOS coming soon">
   <img src="https://img.shields.io/badge/plugin-Claude%20Code-ff8830?style=flat-square" alt="Claude Code Plugin">
   <img src="https://img.shields.io/badge/license-MIT-33cc55?style=flat-square" alt="MIT">
 </p>
@@ -61,30 +61,20 @@
 
 ### macOS
 
-```bash
-/plugin marketplace add Houyusu/claude-halo
-/plugin install claude-halo-mac@claude-halo
-```
+即将上线 🚧
 
-安装后重新启动 Claude Code，光环自动出现在屏幕右下角。
+---
 
-### 从源码构建
+## 更新
 
 ```bash
-# Windows
-cd win/src-tauri && cargo build --release
-# 二进制在 win/src-tauri/target/release/claude-halo.exe
-
-# macOS
-cd mac/src-tauri && cargo build --release
-# 二进制在 mac/src-tauri/target/release/claude-halo
+/plugin update claude-halo-win
 ```
 
 ### 卸载
 
 ```bash
-/plugin uninstall claude-halo-win   # Windows
-/plugin uninstall claude-halo-mac   # macOS
+/plugin uninstall claude-halo-win
 ```
 
 ---
