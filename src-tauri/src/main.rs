@@ -168,12 +168,6 @@ async fn get_state(s: tauri::State<'_, AppState>) -> Result<String, String> {
     Ok(s.current_state.lock().await.to_str().to_string())
 }
 
-#[tauri::command]
-async fn set_passthrough(w: tauri::WebviewWindow, enabled: bool) -> Result<bool, String> {
-    w.set_ignore_cursor_events(enabled).map_err(|e| e.to_string())?;
-    Ok(enabled)
-}
-
 // ── Main ──────────────────────────────────────────────────────────
 
 fn main() {
@@ -186,7 +180,7 @@ fn main() {
 
     tauri::Builder::default()
         .manage(AppState { current_state: state })
-        .invoke_handler(tauri::generate_handler![get_state, set_passthrough])
+        .invoke_handler(tauri::generate_handler![get_state])
         .setup(move |app| {
             let window = WebviewWindowBuilder::new(app, "main",
                 tauri::WebviewUrl::App("index.html".into())

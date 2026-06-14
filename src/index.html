@@ -12,77 +12,11 @@ html,body{
   overflow:hidden;
   user-select:none;-webkit-user-select:none;
 }
-canvas{display:block;width:100%;height:100%;cursor:grab}
-canvas.dragging{cursor:grabbing}
-
-#menu{
-  display:none;position:fixed;z-index:100;
-  background:rgba(20,20,20,0.95);border:1px solid rgba(255,255,255,0.15);
-  border-radius:8px;padding:4px 0;min-width:170px;
-  max-height:calc(100vh - 8px);overflow-y:auto;
-  font:13px/1.6 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:#ccc;
-  box-shadow:0 8px 32px rgba(0,0,0,0.6);
-}
-#menu::-webkit-scrollbar{width:4px}
-#menu::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:2px}
-#menu .section{padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
-#menu .section:last-child{border-bottom:none}
-#menu .item{
-  padding:6px 16px 6px 28px;cursor:pointer;position:relative;
-  white-space:nowrap;
-}
-#menu .item:hover{background:rgba(255,255,255,0.08)}
-#menu .item.active::before{
-  content:"✓";position:absolute;left:10px;color:#66cc88;
-}
-#menu .item.toggle::before{content:""}
-#menu .item.toggle.on::after{content:"开";float:right;color:#66cc88;font-weight:bold}
-#menu .item.toggle.off::after{content:"关";float:right;color:#888}
-
-#summary{
-  display:none;position:fixed;z-index:100;
-  background:rgba(20,20,20,0.95);border:1px solid rgba(255,255,255,0.15);
-  border-radius:8px;padding:12px 16px;min-width:200px;
-  font:13px/1.5 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:#ccc;
-  box-shadow:0 8px 32px rgba(0,0,0,0.6);
-}
-#summary .status{font-size:16px;font-weight:600;margin-bottom:4px}
-#summary .status.idle{color:#aaaaaa}
-#summary .status.thinking{color:#ff8830}
-#summary .status.executing{color:#3399ff}
-#summary .status.input_needed{color:#ee3333}
-#summary .status.completed{color:#33cc55}
-#summary .status.compacting{color:#9944ff}
-
-#passthrough-hint{
-  display:none;position:fixed;bottom:8px;left:50%;
-  transform:translateX(-50%);
-  background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);
-  padding:3px 10px;border-radius:10px;
-  font:10px "Microsoft YaHei",system-ui,sans-serif;pointer-events:none;
-  white-space:nowrap;
-}
+canvas{display:block;width:100%;height:100%}
 </style>
 </head>
 <body>
 <canvas id="halo"></canvas>
-
-<div id="menu">
-  <div class="section">
-    <div class="item toggle off" data-state="passthrough">点击穿透</div>
-  </div>
-  <div class="section">
-    <div class="item" data-state="exit">退出</div>
-  </div>
-</div>
-
-<div id="summary">
-  <div class="status" id="summary-status">待命</div>
-  <div id="summary-info">Claude 未运行</div>
-</div>
-
-<div id="passthrough-hint">点击穿透已开启 · 右键菜单切换</div>
-
 <script src="halo.js"></script>
 <script src="app.js"></script>
 </body>
