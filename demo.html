@@ -8,8 +8,9 @@
   *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
   body{
     background:#0d0d0d;color:#ccc;font:14px/1.6 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
     min-height:100vh;overflow-x:hidden;gap:24px;
+    padding-top:64px;padding-bottom:64px;
   }
   header{
     text-align:center;padding:0 16px;
@@ -34,6 +35,11 @@
   .state-label.completed{color:#33cc55}
   .state-label.compacting{color:#9944ff}
 
+  .state-desc{
+    text-align:center;font-size:13px;color:#444;margin-top:2px;transition:color .3s;
+    max-width:360px;line-height:1.5;
+  }
+
   /* ── State buttons with sliding highlighter ───────────────── */
   .state-picker{
     position:relative;
@@ -42,20 +48,29 @@
   .state-btn{
     position:relative;z-index:1;
     padding:9px 24px;border:1px solid transparent;border-radius:22px;
-    background:transparent;color:#aaa;font-size:14px;cursor:pointer;transition:color .25s;
+    background:transparent;color:#aaa;font-size:14px;cursor:pointer;transition:color .25s,border-color .25s;
     font-family:inherit;
   }
   .state-btn:hover{color:#ddd}
 
   .state-highlighter{
     position:absolute;z-index:0;pointer-events:none;
-    border:1px solid #aaaaaa;border-radius:22px;
+    border:1px solid #aaa;border-radius:22px;
     transition:left .45s cubic-bezier(.4,0,.2,1),
                top .45s cubic-bezier(.4,0,.2,1),
                width .45s cubic-bezier(.4,0,.2,1),
                height .45s cubic-bezier(.4,0,.2,1),
                border-color .45s ease;
   }
+  .state-highlighter.hidden{display:none}
+
+  /* Paused mode: show all buttons with their own colored borders */
+  .state-btn.paused-border[data-state="idle"]{border-color:#aaaaaa;color:#aaaaaa}
+  .state-btn.paused-border[data-state="thinking"]{border-color:#ff8830;color:#ff8830}
+  .state-btn.paused-border[data-state="executing"]{border-color:#3399ff;color:#3399ff}
+  .state-btn.paused-border[data-state="input_needed"]{border-color:#ee3333;color:#ee3333}
+  .state-btn.paused-border[data-state="completed"]{border-color:#33cc55;color:#33cc55}
+  .state-btn.paused-border[data-state="compacting"]{border-color:#9944ff;color:#9944ff}
 
   /* ── Auto-play bar ─────────────────────────────────────────── */
   .auto-play-bar{
@@ -74,14 +89,13 @@
 
   /* ── Install section ───────────────────────────────────────── */
   .install-section{
-    align-self:flex-start;
-    margin-top:40px;margin-left:max(24px, calc((100vw - 520px) / 2 - 280px));
-    text-align:left;
+    margin-top:40px;text-align:left;
+    width:520px;max-width:90vw;
   }
   .install-section h2{font-size:20px;font-weight:500;color:#888;letter-spacing:8px;margin-bottom:22px}
   .install-platforms{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
   .install-platform{
-    width:520px;max-width:90vw;
+    width:100%;
     background:rgba(255,255,255,0.025);
     border:1px solid rgba(255,255,255,0.08);border-radius:12px;
     padding:20px 24px;text-align:left;
@@ -138,6 +152,7 @@
 </div>
 
 <div class="state-label" id="stateLabel">待命 Idle</div>
+<div class="state-desc" id="stateDesc"></div>
 
 <div class="state-picker" id="statePicker">
   <div class="state-highlighter" id="stateHighlighter"></div>
@@ -210,12 +225,12 @@ function lerpRgb(a,b,t){return[Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1
 function rgba(r,g,b,a){return"rgba("+r+","+g+","+b+","+a+")"}
 
 var CONFIGS = {
-  idle:         {color:"#aaaaaa",halo:"#cccccc",period:6.0,dashes:[60,30],               ms:0,  md:0,   amin:0.30,amax:0.42,br:0,  rp:0,   rpperiod:0,   label:"待命 Idle"},
-  thinking:     {color:"#ff8830",halo:"#ffdbb8",period:2.4,dashes:[70,35,45,30,25,20],   ms:0.6,md:0.4, amin:0.45,amax:0.90,br:5.2,rp:0,   rpperiod:0,   label:"思考 Thinking"},
-  executing:    {color:"#3399ff",halo:"#bbddff",period:1.3,dashes:[50,25,20,20,35,25,25,22],ms:1.2,md:0.28,amin:0.60,amax:0.90,br:0,  rp:0,   rpperiod:0,   label:"执行 Executing"},
-  input_needed: {color:"#ee3333",halo:"#ffcccc",period:2.8,dashes:[80,50,30,25],          ms:1.8,md:0.5, amin:0.52,amax:0.94,br:2.0,rp:0,   rpperiod:0,   label:"等待输入 Input Needed"},
-  completed:    {color:"#33cc55",halo:"#bbffcc",period:5.0,dashes:[70,35,45,30,25,20],   ms:0.5,md:0.3, amin:0.38,amax:0.84,br:6.0,rp:0,   rpperiod:0,   label:"已完成 Completed"},
-  compacting:   {color:"#9944ff",halo:"#ddccff",period:2.1,dashes:[35,20,35,20,35,20],   ms:0.4,md:0.25,amin:0.38,amax:0.80,br:4.0,rp:0.12,rpperiod:1.6, label:"压缩 Compacting"},
+  idle:         {color:"#aaaaaa",halo:"#cccccc",period:6.0,dashes:[60,30],               ms:0,  md:0,   amin:0.30,amax:0.42,br:0,  rp:0,   rpperiod:0,   label:"待命 Idle",          desc:"等待输入，低存在感灰白两段慢速旋转"},
+  thinking:     {color:"#ff8830",halo:"#ffdbb8",period:2.4,dashes:[70,35,45,30,25,20],   ms:0.6,md:0.4, amin:0.45,amax:0.90,br:5.2,rp:0,   rpperiod:0,   label:"思考 Thinking",       desc:"正在推理，琥珀色六段呼吸辉光"},
+  executing:    {color:"#3399ff",halo:"#bbddff",period:1.3,dashes:[50,25,20,20,35,25,25,22],ms:1.2,md:0.28,amin:0.60,amax:0.90,br:0,  rp:0,   rpperiod:0,   label:"执行 Executing",      desc:"执行工具调用，蓝色八段高速旋转"},
+  input_needed: {color:"#ee3333",halo:"#ffcccc",period:2.8,dashes:[80,50,30,25],          ms:1.8,md:0.5, amin:0.52,amax:0.94,br:2.0,rp:0,   rpperiod:0,   label:"等待输入 Input Needed",desc:"需要用户响应，红色四段呼吸提醒"},
+  completed:    {color:"#33cc55",halo:"#bbffcc",period:5.0,dashes:[70,35,45,30,25,20],   ms:0.5,md:0.3, amin:0.38,amax:0.84,br:6.0,rp:0,   rpperiod:0,   label:"已完成 Completed",     desc:"任务完成，绿色六段柔和呼吸"},
+  compacting:   {color:"#9944ff",halo:"#ddccff",period:2.1,dashes:[35,20,35,20,35,20],   ms:0.4,md:0.25,amin:0.38,amax:0.80,br:4.0,rp:0.12,rpperiod:1.6, label:"压缩 Compacting",     desc:"上下文压缩，紫色六段半径脉冲"},
 };
 
 var STATE_ORDER = ["idle", "thinking", "executing", "input_needed", "completed", "compacting"];
@@ -411,8 +426,9 @@ function moveHighlighter(stateName){
   highlighter.style.borderColor = CONFIGS[stateName].color;
 }
 
-// Initial position
+// Initial position & description
 moveHighlighter("idle");
+document.getElementById("stateDesc").textContent = CONFIGS["idle"].desc;
 
 // Update on resize (buttons may wrap)
 window.addEventListener("resize", function(){
@@ -422,16 +438,23 @@ window.addEventListener("resize", function(){
 function setState(name){
   if(targetState===name)return;
   targetState=name;
-  // Button text color (no border on buttons themselves)
+  // Button text color
   document.querySelectorAll(".state-btn").forEach(function(b){
     var active = b.dataset.state === name;
-    b.style.color = active ? CONFIGS[name].color : "";
+    if (!autoPlaying) {
+      // Paused mode: .paused-border handles color via CSS
+    } else {
+      b.style.color = active ? CONFIGS[name].color : "";
+    }
   });
   var lb=document.getElementById("stateLabel");
   lb.textContent=CONFIGS[name].label;
   lb.className="state-label "+name;
-  // Slide highlighter
-  moveHighlighter(name);
+  // Description text
+  var sd=document.getElementById("stateDesc");
+  sd.textContent=CONFIGS[name].desc || "";
+  // Slide highlighter (only when playing)
+  if (autoPlaying) moveHighlighter(name);
 }
 window.setState=setState;
 
@@ -468,8 +491,20 @@ function toggleAutoPlay(){
     btn.className = "auto-play-btn playing";
     btn.title = "暂停自动播放";
     btn.querySelector("span").textContent = "自动播放";
-    autoIdx = STATE_ORDER.indexOf(targetState);
     svg.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    // Switch to sliding highlighter mode
+    highlighter.classList.remove("hidden");
+    document.querySelectorAll(".state-btn").forEach(function(b){
+      b.classList.remove("paused-border");
+      b.style.color = "";
+    });
+    // Restore current state color on active button, reposition highlighter
+    document.querySelectorAll(".state-btn").forEach(function(b){
+      var active = b.dataset.state === targetState;
+      b.style.color = active ? CONFIGS[targetState].color : "";
+    });
+    moveHighlighter(targetState);
+    autoIdx = STATE_ORDER.indexOf(targetState);
     scheduleNext();
   } else {
     btn.className = "auto-play-btn paused";
@@ -477,6 +512,12 @@ function toggleAutoPlay(){
     btn.querySelector("span").textContent = "已暂停";
     if (autoPlayTimer) clearTimeout(autoPlayTimer);
     svg.innerHTML = '<polygon points="7,5 18,12 7,19"/>';
+    // Switch to static colored-borders mode
+    highlighter.classList.add("hidden");
+    document.querySelectorAll(".state-btn").forEach(function(b){
+      b.classList.add("paused-border");
+      // CSS handles color via .paused-border[data-state] rules
+    });
   }
 }
 
