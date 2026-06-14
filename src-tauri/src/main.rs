@@ -1,51 +1,22 @@
-#![windows_subsystem = "windows"]
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
+// ── Platform module (compile-time selection) ─────────────────────────
+#[cfg(target_os = "windows")]
+#[path = "platform_windows.rs"]
+mod platform;
+
+#[cfg(target_os = "macos")]
+#[path = "platform_macos.rs"]
+mod platform;
 
 use serde::Serialize;
 use std::fs;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::Emitter;
 use tauri::webview::WebviewWindowBuilder;
 use tokio::sync::Mutex;
 
-// ── Win32 FFI (all in-process, no subprocess spawns) ──────────────
-extern "system" {
-    // Focus restoration — save terminal window before halo steals it
-    fn GetForegroundWindow() -> isize;
-    fn SetForegroundWindow(hWnd: isize) -> i32;
-    // IsWindow — check if a window handle is still valid
-    fn IsWindow(hWnd: isize) -> i32;
-    // Process liveness check — detect when Claude Code has exited
-    fn OpenProcess(dwDesiredAccess: u32, bInheritHandle: i32, dwProcessId: u32) -> isize;
-    fn CloseHandle(hObject: isize) -> i32;
-    fn WaitForSingleObject(hHandle: isize, dwMilliseconds: u32) -> u32;
-    // Toolhelp32 — enumerate running processes by name
-    fn CreateToolhelp32Snapshot(dwFlags: u32, th32ProcessID: u32) -> isize;
-    fn Process32FirstW(hSnapshot: isize, lppe: *mut PROCESSENTRY32W) -> i32;
-    fn Process32NextW(hSnapshot: isize, lppe: *mut PROCESSENTRY32W) -> i32;
-}
-
-const PROCESS_SYNCHRONIZE: u32 = 0x00100000;
-const WAIT_TIMEOUT: u32 = 0x00000102;
-const TH32CS_SNAPPROCESS: u32 = 0x00000002;
-const INVALID_HANDLE_VALUE: isize = -1;
-
-#[repr(C)]
-#[allow(non_snake_case)]
-struct PROCESSENTRY32W {
-    dwSize: u32,
-    cntUsage: u32,
-    th32ProcessID: u32,
-    th32DefaultHeapID: usize,
-    th32ModuleID: u32,
-    cntThreads: u32,
-    th32ParentProcessID: u32,
-    pcPriClassBase: i32,
-    dwFlags: u32,
-    szExeFile: [u16; 260],
-}
-
-// ── Halo state ────────────────────────────────────────────────────
+// ── Halo state ───────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 enum HaloState { Idle, Thinking, Executing, InputNeeded, Completed, Compacting }
@@ -65,13 +36,10 @@ impl HaloState {
 
 struct AppState { current_state: Arc<Mutex<HaloState>> }
 
-// ── Win32 helpers ─────────────────────────────────────────────────
+// ── State file reader (cross-platform) ───────────────────────────────
 
 fn read_hook_state() -> Option<HaloState> {
-    let path = std::env::var("TEMP")
-        .map(|d| PathBuf::from(d).join("claude-halo-state.txt"))
-        .unwrap_or_else(|_| PathBuf::from("C:\\Windows\\Temp\\claude-halo-state.txt"));
-
+    let path = std::env::temp_dir().join("claude-halo-state.txt");
     let content = fs::read_to_string(&path).ok()?;
     let trimmed = content.trim().trim_start_matches('\u{feff}');
     Some(match trimmed {
@@ -84,96 +52,19 @@ fn read_hook_state() -> Option<HaloState> {
     })
 }
 
-/// Find the PID of a running claude.exe process using Toolhelp32.
-/// Because we are launched by Claude Code, there is always at least one
-/// claude.exe running when halo starts. No hook or file I/O needed.
-fn find_claude_pid() -> Option<u32> {
-    unsafe {
-        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if snapshot == 0 || snapshot == INVALID_HANDLE_VALUE {
-            return None;
-        }
-
-        let mut entry = PROCESSENTRY32W {
-            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
-            cntUsage: 0, th32ProcessID: 0, th32DefaultHeapID: 0,
-            th32ModuleID: 0, cntThreads: 0, th32ParentProcessID: 0,
-            pcPriClassBase: 0, dwFlags: 0, szExeFile: [0u16; 260],
-        };
-
-        if Process32FirstW(snapshot, &mut entry) == 0 {
-            CloseHandle(snapshot);
-            return None;
-        }
-
-        let target: Vec<u16> = "claude.exe\0".encode_utf16().collect();
-        loop {
-            // Compare szExeFile (UTF-16LE, case-insensitive)
-            let mut matches = true;
-            for (i, &c) in target.iter().enumerate() {
-                let ec = entry.szExeFile[i];
-                // Case-insensitive ASCII comparison for Latin letters
-                let ec_lower = if (b'A'..=b'Z').contains(&(ec as u8)) { ec | 0x0020 } else { ec };
-                let c_lower = if (b'A'..=b'Z').contains(&(c as u8)) { c | 0x0020 } else { c };
-                if ec_lower != c_lower as u16 { matches = false; break; }
-                if c == 0 { break; }
-            }
-            if matches {
-                let pid = entry.th32ProcessID;
-                CloseHandle(snapshot);
-                return Some(pid);
-            }
-            if Process32NextW(snapshot, &mut entry) == 0 {
-                break;
-            }
-        }
-
-        CloseHandle(snapshot);
-    }
-
-    // Fallback: try reading PID file (written by SessionStart hook pre-v1.0.5)
-    read_cc_pid_file()
-}
-
-/// Legacy fallback: read PID from file for backward compatibility.
-fn read_cc_pid_file() -> Option<u32> {
-    let path = std::env::var("TEMP")
-        .map(|d| PathBuf::from(d).join("claude-halo-cc-pid.txt"))
-        .unwrap_or_else(|_| PathBuf::from("C:\\Windows\\Temp\\claude-halo-cc-pid.txt"));
-    let content = fs::read_to_string(&path).ok()?;
-    content.trim().parse().ok()
-}
-
-/// Check if a Windows process is still alive using a SYNCHRONIZE handle.
-/// OpenProcess + WaitForSingleObject(timeout=0) is the canonical check:
-///   WAIT_TIMEOUT → process still running
-///   anything else → process has exited (or OpenProcess failed)
-fn is_process_alive(pid: u32) -> bool {
-    if pid == 0 { return false; }
-    unsafe {
-        let handle = OpenProcess(PROCESS_SYNCHRONIZE, 0, pid);
-        if handle == 0 || handle == -1 {
-            return false;
-        }
-        let result = WaitForSingleObject(handle, 0);
-        CloseHandle(handle);
-        result == WAIT_TIMEOUT
-    }
-}
-
-// ── Tauri commands ────────────────────────────────────────────────
+// ── Tauri commands ───────────────────────────────────────────────────
 
 #[tauri::command]
 async fn get_state(s: tauri::State<'_, AppState>) -> Result<String, String> {
     Ok(s.current_state.lock().await.to_str().to_string())
 }
 
-// ── Main ──────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────
 
 fn main() {
     // Save foreground window BEFORE tauri creates the halo window.
     // Without this, the terminal loses focus every time halo starts.
-    let saved_hwnd = unsafe { GetForegroundWindow() };
+    let saved_hwnd = platform::save_foreground();
 
     let state = Arc::new(Mutex::new(HaloState::Idle));
     let state_clone = state.clone();
@@ -211,10 +102,10 @@ fn main() {
             }
 
             // Restore focus to the terminal — halo's window steals it on creation
-            if saved_hwnd != 0 {
+            if saved_hwnd != platform::WindowId::default() {
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(600)).await;
-                    unsafe { SetForegroundWindow(saved_hwnd); }
+                    platform::restore_focus(saved_hwnd);
                 });
             }
 
@@ -228,16 +119,13 @@ fn main() {
                 let mut completed_since: Option<std::time::Instant> = None;
                 let mut completed_consumed = false;
                 let mut hold_completed = false; // user-away: hold green until focus returns
-                let mut focus_hwnd = saved_hwnd; // terminal handle for focus detection
+                let mut focus_hwnd = saved_hwnd; // terminal window handle for focus detection
                 let mut focus_captured = false;   // captured on first Thinking
                 let mut think_hold_until: Option<std::time::Instant> = None;
                 let mut saw_non_executing = true;
-                // Process liveness check: find claude.exe via Toolhelp32
-                // enumeration and poll its liveness. No hook or file needed.
+                // Process liveness check: find claude process and poll liveness.
                 let mut alive_check_ticks: u32 = 0; // check on first tick
 
-                // Hotkey: debounced with cooldown to prevent rapid-fire
-                // ~2s cooldown = 13 ticks × 150ms
                 loop {
                     interval.tick().await;
 
@@ -245,16 +133,14 @@ fn main() {
                     let raw_state = read_hook_state().unwrap_or(HaloState::Idle);
 
                     // ── Process liveness check (every ~2.25 s) ──
-                    // Halo enumerates processes to find claude.exe
-                    // (Toolhelp32). No hook execution needed.
                     if alive_check_ticks == 0 {
-                        if let Some(pid) = find_claude_pid() {
-                            if !is_process_alive(pid) {
+                        if let Some(pid) = platform::find_cc_pid() {
+                            if !platform::is_process_alive(pid) {
                                 let _ = win.close();
                                 break;
                             }
                         } else {
-                            // No claude.exe running at all — exit
+                            // No CC process running at all — exit
                             let _ = win.close();
                             break;
                         }
@@ -262,18 +148,18 @@ fn main() {
                     }
                     alive_check_ticks -= 1;
 
-                    // Capture terminal HWND on the first Thinking transition.
+                    // Capture terminal window ID on the first Thinking transition.
                     // At the exact moment "thinking" fires, the user just hit
-                    // Enter in their terminal — GetForegroundWindow() is guaranteed
+                    // Enter in their terminal — the foreground window is guaranteed
                     // to be the terminal window.  We capture once and never update
                     // again, because during long executions the user may switch away.
-                    // Reset if the captured handle becomes invalid (terminal restart).
-                    if focus_captured && unsafe { IsWindow(focus_hwnd) == 0 } {
+                    // Reset if the captured window becomes invalid (terminal restart).
+                    if focus_captured && !platform::is_window_valid(focus_hwnd) {
                         focus_captured = false;
                     }
                     if !focus_captured && matches!(raw_state, HaloState::Thinking) {
-                        let fg = unsafe { GetForegroundWindow() };
-                        if fg != 0 {
+                        let fg = platform::get_focused_window();
+                        if fg != platform::WindowId::default() {
                             focus_hwnd = fg;
                             focus_captured = true;
                         }
@@ -403,14 +289,14 @@ fn main() {
                         // Monitor focus continuously during the completed display.
                         // If the terminal loses focus, the user may have walked away
                         // — hold green indefinitely.  When focus returns, fade to idle.
-                        let fg = unsafe { GetForegroundWindow() };
-                        let terminal_focused = fg != 0 && fg == focus_hwnd;
-                        let focus_valid = unsafe { IsWindow(focus_hwnd) != 0 };
-                        // Fallback: if terminal HWND is stale (e.g. after compaction
+                        let fg = platform::get_focused_window();
+                        let terminal_focused = fg != platform::WindowId::default() && fg == focus_hwnd;
+                        let focus_valid = platform::is_window_valid(focus_hwnd);
+                        // Fallback: if terminal window ID is stale (e.g. after compaction
                         // restart), treat any foreground window as "focused" so the
-                        // 3s timer can run.  Without this, a stale HWND would cause
+                        // 3s timer can run.  Without this, a stale ID would cause
                         // hold_completed to be set indefinitely.
-                        let effectively_focused = terminal_focused || (!focus_valid && fg != 0);
+                        let effectively_focused = terminal_focused || (!focus_valid && fg != platform::WindowId::default());
                         if !hold_completed && !effectively_focused {
                             hold_completed = true;
                         }

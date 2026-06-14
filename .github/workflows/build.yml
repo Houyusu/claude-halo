@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Build
+        run: cargo build --release
+        working-directory: src-tauri
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claude-halo-windows
+          path: src-tauri/target/release/claude-halo.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Build
+        run: cargo build --release
+        working-directory: src-tauri
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claude-halo-macos
+          path: src-tauri/target/release/claude-halo
