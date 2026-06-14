@@ -227,8 +227,7 @@ fn main() {
                 let mut exec_since: Option<std::time::Instant> = None;
                 let mut completed_since: Option<std::time::Instant> = None;
                 let mut completed_consumed = false;
-                let mut hold_completed = false; // compaction or user-away: hold green
-                let mut hold_from_compaction = false; // compaction hold: no focus release
+                let mut hold_completed = false; // user-away: hold green until focus returns
                 let mut focus_hwnd = saved_hwnd; // terminal handle for focus detection
                 let mut focus_captured = false;   // captured on first Thinking
                 let mut think_hold_until: Option<std::time::Instant> = None;
@@ -296,9 +295,6 @@ fn main() {
                     if !matches!(new_state, HaloState::Idle | HaloState::Completed) && hold_completed {
                         hold_completed = false;
                     }
-                    if !matches!(new_state, HaloState::Idle | HaloState::Completed) && hold_from_compaction {
-                        hold_from_compaction = false;
-                    }
 
                     // ── Missed-completed injection ─────────────────
                     // idle_prompt notification can overwrite "completed" in the
@@ -310,24 +306,14 @@ fn main() {
                             (Some(HaloState::Thinking | HaloState::Executing | HaloState::Compacting), HaloState::Idle)
                             | (Some(HaloState::Thinking | HaloState::Executing | HaloState::Compacting), HaloState::Completed) => {
                                 new_state = HaloState::Completed;
-                                // Compaction can take a long time — the user may have
-                                // walked away.  Hold green until they send a new
-                                // message.  Focus return does NOT release this
-                                // hold because terminal restart makes focus
-                                // detection unreliable.
-                                if matches!(displayed, Some(HaloState::Compacting)) {
-                                    hold_completed = true;
-                                    hold_from_compaction = true;
-                                }
                             }
                             _ => {}
                         }
                     }
 
-                    // Hold completed indefinitely when user may be away
-                    // (compaction was running, or terminal lost focus at completion).
+                    // Hold completed when user is away (terminal lost focus at completion).
                     // idle_prompt writes "idle" to the state file, but we keep showing
-                    // green until the user sends a new message.
+                    // green until the user returns focus to the terminal.
                     if hold_completed && matches!(raw_state, HaloState::Idle) {
                         new_state = HaloState::Completed;
                     }
@@ -396,7 +382,6 @@ fn main() {
                                 completed_since = None;
                                 completed_consumed = false;
                                 hold_completed = false;
-                                hold_from_compaction = false;
                             }
                             _ => {
                                 // Keep showing completed
@@ -414,21 +399,31 @@ fn main() {
                                 *st.lock().await = HaloState::Completed;
                                 displayed = Some(HaloState::Completed);
                             }
+                            // After compaction the terminal restarts with a new HWND.
+                            // Re-capture it here so focus detection works for the
+                            // rest of the Completed period.  The new terminal
+                            // auto-gets focus, so GetForegroundWindow() is correct.
+                            if !focus_captured {
+                                let fg = unsafe { GetForegroundWindow() };
+                                if fg != 0 {
+                                    focus_hwnd = fg;
+                                    focus_captured = true;
+                                }
+                            }
                         }
                         // Monitor focus continuously during the completed display.
                         // If the terminal loses focus, the user may have walked away
                         // — hold green indefinitely.  When focus returns, fade to idle.
                         let fg = unsafe { GetForegroundWindow() };
                         let terminal_focused = fg != 0 && fg == focus_hwnd;
-                        // focus_hwnd is updated dynamically during active states.
-                        // If the terminal was restarted (e.g. compaction), the old
-                        // handle becomes invalid — fall back to any foreground window.
                         let focus_valid = unsafe { IsWindow(focus_hwnd) != 0 };
+                        // If the terminal was restarted (e.g. compaction) and we
+                        // couldn't re-capture, fall back to any foreground window.
                         let effectively_focused = terminal_focused || (!focus_valid && fg != 0);
                         if !hold_completed && !effectively_focused {
                             hold_completed = true;
                         }
-                        if hold_completed && effectively_focused && !hold_from_compaction {
+                        if hold_completed && effectively_focused {
                             // User returned — release hold and fade to idle
                             hold_completed = false;
                             completed_consumed = true;
