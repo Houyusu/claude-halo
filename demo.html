@@ -56,15 +56,20 @@
   .state-highlighter{
     position:absolute;z-index:0;pointer-events:none;
     border:1px solid #aaa;border-radius:22px;
+    opacity:1;
     transition:left .45s cubic-bezier(.4,0,.2,1),
                top .45s cubic-bezier(.4,0,.2,1),
                width .45s cubic-bezier(.4,0,.2,1),
                height .45s cubic-bezier(.4,0,.2,1),
-               border-color .45s ease;
+               border-color .45s ease,
+               opacity .35s ease;
   }
-  .state-highlighter.hidden{display:none}
+  .state-highlighter.hidden{opacity:0}
 
   /* Paused mode: show all buttons with their own colored borders */
+  .state-btn.paused-border{
+    transition:color .35s ease,border-color .35s ease;
+  }
   .state-btn.paused-border[data-state="idle"]{border-color:#aaaaaa;color:#aaaaaa}
   .state-btn.paused-border[data-state="thinking"]{border-color:#ff8830;color:#ff8830}
   .state-btn.paused-border[data-state="executing"]{border-color:#3399ff;color:#3399ff}
@@ -92,7 +97,7 @@
     margin-top:40px;text-align:left;
     width:520px;max-width:90vw;
   }
-  .install-section h2{font-size:20px;font-weight:500;color:#888;letter-spacing:8px;margin-bottom:22px}
+  .install-section h2{font-size:20px;font-weight:500;color:#888;letter-spacing:8px;margin-bottom:22px;text-align:center}
   .install-platforms{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
   .install-platform{
     width:100%;
