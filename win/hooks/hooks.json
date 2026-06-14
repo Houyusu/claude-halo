@@ -1,0 +1,83 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State idle"
+          },
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/launch-halo.ps1\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State thinking"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion|ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State input_needed"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State executing"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State completed"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State compacting"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/halo-hook.ps1\" -State idle"
+          }
+        ]
+      }
+    ]
+  }
+}

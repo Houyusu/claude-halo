@@ -4,16 +4,28 @@
     "name": "Houyu"
   },
   "metadata": {
-    "description": "桌面光环指示器 — 为 Claude Code 提供思考/执行/空闲等状态的实时视觉反馈"
+    "description": "桌面光环指示器 — 六种颜色、六种动画，实时反映 Claude Code 运行状态（Windows + macOS）"
   },
   "plugins": [
     {
-      "name": "claude-halo",
+      "name": "claude-halo-win",
       "source": {
         "source": "github",
         "repo": "Houyusu/claude-halo"
       },
-      "description": "桌面光环指示器 — 六种颜色、六种动画，实时反映 Claude Code 运行状态",
+      "description": "桌面光环指示器（Windows）— 六种颜色、六种动画，实时反映 Claude Code 运行状态",
+      "version": "1.0.0",
+      "author": {
+        "name": "Houyu"
+      }
+    },
+    {
+      "name": "claude-halo-mac",
+      "source": {
+        "source": "github",
+        "repo": "Houyusu/claude-halo"
+      },
+      "description": "桌面光环指示器（macOS）— 六种颜色、六种动画，实时反映 Claude Code 运行状态",
       "version": "1.0.0",
       "author": {
         "name": "Houyu"

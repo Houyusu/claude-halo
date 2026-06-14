@@ -1,0 +1,13 @@
+{
+  "name": "claude-halo-win",
+  "version": "1.0.0",
+  "description": "桌面光环指示器 — 为 Claude Code 提供思考/执行/空闲等状态的实时视觉反馈（Windows）",
+  "author": {
+    "name": "Houyu"
+  },
+  "homepage": "https://github.com/Houyusu/claude-halo",
+  "repository": "https://github.com/Houyusu/claude-halo",
+  "license": "MIT",
+  "keywords": ["halo", "visual", "status", "indicator", "desktop", "windows"],
+  "hooks": "./hooks/hooks.json"
+}
