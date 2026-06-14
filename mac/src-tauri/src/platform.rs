@@ -132,17 +132,20 @@ pub fn save_foreground() -> WindowId {
     get_frontmost_window().unwrap_or(0)
 }
 
-pub fn restore_focus(_id: WindowId) {
-    // osascript is the simplest way to refocus the previous app.
-    // On macOS the halo window rarely steals focus, so this is belt-and-suspenders.
-    let script = format!(
-        "tell application \"System Events\" to set frontmost of first process \
-         whose unix id is {} to true",
-        _id
-    );
-    let _ = Command::new("osascript")
-        .args(["-e", &script])
-        .output();
+pub fn restore_focus(id: WindowId) {
+    // Look up the PID that owns this window, then use osascript to refocus
+    // that process.  save_foreground() returns a CGWindowID, not a PID,
+    // so we must resolve it through CGWindowList first.
+    if let Some(pid) = get_window_pid(id) {
+        let script = format!(
+            "tell application \"System Events\" to set frontmost of first process \
+             whose unix id is {} to true",
+            pid
+        );
+        let _ = Command::new("osascript")
+            .args(["-e", &script])
+            .output();
+    }
 }
 
 pub fn is_window_valid(id: WindowId) -> bool {

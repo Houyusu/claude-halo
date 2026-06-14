@@ -28,6 +28,13 @@
         tauriEvent.listen("state-changed", function (event) {
           setState(event.payload);
         });
+
+        // Listen for exit trigger — CC process died, animate out before close
+        tauriEvent.listen("trigger-exit", function (_event) {
+          if (window.__haloTriggerExit) {
+            window.__haloTriggerExit(function () {});
+          }
+        });
       }
     } catch (e) {}
   }

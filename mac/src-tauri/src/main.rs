@@ -127,12 +127,16 @@ fn main() {
                     if alive_check_ticks == 0 {
                         if let Some(pid) = platform::find_cc_pid() {
                             if !platform::is_process_alive(pid) {
+                                let _ = win.emit("trigger-exit", "");
+                                tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
                                 let _ = win.close();
                                 break;
                             }
                             cc_pid_cache = Some(pid);
                         } else {
                             // No CC process running at all — exit
+                            let _ = win.emit("trigger-exit", "");
+                            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
                             let _ = win.close();
                             break;
                         }
@@ -262,9 +266,15 @@ fn main() {
                         let fg = platform::get_focused_window();
                         let terminal_focused = fg != platform::WindowId::default() && fg == focus_hwnd;
                         let focus_valid = platform::is_window_valid(focus_hwnd);
+                        // When fg doesn't match focus_hwnd, verify via process
+                        // association regardless of whether focus_hwnd is
+                        // still valid.  focus_hwnd can be valid but wrong
+                        // (user restarted CC in a different terminal tab,
+                        // leaving the old tab open).  Without PID fallback
+                        // in that case, hold_completed would never release.
                         let effectively_focused = if terminal_focused {
                             true
-                        } else if !focus_valid && fg != platform::WindowId::default() {
+                        } else if fg != platform::WindowId::default() {
                             cc_pid_cache.map_or(!hold_completed, |cc_pid| {
                                 platform::get_window_pid(fg) == Some(cc_pid)
                             })
